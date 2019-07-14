@@ -5,6 +5,7 @@ use ieee.std_logic_1164.all;
 use work.dcram;
 use work.greyCDCSync;
 use work.axiDelay;
+
 --dual clock show-ahead queue with overflow detection
 -- - to read from queue, whenever the queue is not empty,
 --		readvalid will be asserted and data will be present on
@@ -45,16 +46,18 @@ architecture a of dcfifo is
 	signal ram1wrdata,ram1rddata: std_logic_vector(width-1 downto 0);
 	signal ram1wren: std_logic;
 	signal wrdata1: std_logic_vector(width-1 downto 0);
+
+	constant extraWriteRegister: boolean := (depthOrder >= 6);
 	
 	
 	--################ state registers ################
 	
 	--read side's view of the current state
-	signal rdRpos,rdWpos,rdWposNext: unsigned(depthOrder-1 downto 0); -- binary integer
+	signal rdRpos,rdWpos,rdWposNext: unsigned(depthOrder-1 downto 0) := (others=>'0'); -- binary integer
 	signal rdRposGrey, rdWposGrey: std_logic_vector(depthOrder-1 downto 0);
 	
 	--write side's view of the current state
-	signal wrRpos,wrRposM1,wrWpos,wrWpos1,wrRposNext: unsigned(depthOrder-1 downto 0);
+	signal wrRpos,wrRposM1,wrWpos,wrWpos1,wrRposNext: unsigned(depthOrder-1 downto 0) := (others=>'0');
 	signal wrRposGrey, wrWposGrey: std_logic_vector(depthOrder-1 downto 0);
 	
 	--################ queue logic ################
@@ -83,7 +86,7 @@ begin
 g1:
 	if singleClock generate
 		wrRpos <= rdRpos;
-		rdWpos <= wrWpos when rising_edge(rdclk);
+		rdWpos <= wrWpos1 when rising_edge(rdclk);
 	end generate;
 g2:
 	if not singleClock generate
@@ -92,7 +95,7 @@ g2:
 			port map(srcclk=>rdclk, dstclk=>wrclk, datain=>rdRpos, dataout=>wrRpos);
 		syncWpos: entity greyCDCSync
 			generic map(width=>depthOrder, stages=>syncStages, inputRegistered=>false)
-			port map(srcclk=>wrclk, dstclk=>rdclk, datain=>wrWpos, dataout=>rdWpos);
+			port map(srcclk=>wrclk, dstclk=>rdclk, datain=>wrWpos1, dataout=>rdWpos);
 	end generate;
 
 
@@ -122,8 +125,16 @@ g2:
 	--		calculate new wpos pointer
 	wrWposNext <= wrWpos+1 when wrWillPerform='1' else wrWpos;
 	wrWpos <= wrWposNext when rising_edge(wrclk);
-	wrWpos1 <= wrWpos when rising_edge(wrclk);
-	wrdata1 <= wrdata when rising_edge(wrclk);
+	
+g3: if extraWriteRegister generate
+		wrWpos1 <= wrWpos when rising_edge(wrclk);
+		wrdata1 <= wrdata when rising_edge(wrclk);
+	end generate;
+g4: if not extraWriteRegister generate
+		wrWpos1 <= wrWpos;
+		wrdata1 <= wrdata;
+	end generate;
+
 	wrroom <= wrRposM1-wrWpos; -- when rising_edge(wrclk);
 	
 end architecture;
