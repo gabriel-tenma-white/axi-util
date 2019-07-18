@@ -6,7 +6,7 @@ use work.greycodeEnc;
 use work.greycodeDec;
 use work.cdcSync;
 -- cross clock domain sync with grey coding
-entity greyCDCSync is
+entity greycdcsync is
 	generic(width: integer := 8;
 				stages: integer := 3;
 				inputRegistered: boolean := true);
