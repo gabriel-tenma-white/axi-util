@@ -25,11 +25,19 @@ use work.axiPipeAddrInterleaver;
 --				reads return number of fifo entries free)
 -- 5		read buffers fifo
 
+-- if customReadAddrPermutation/customWriteAddrPermutation is false,
+-- by default flags(1..0) is used to select a built in address permutation;
+-- flags(1) enables interleaving and flags(0) enables transpose;
+-- matrix width and height are set by interleaveRowBits.
+-- This only affects the ordering of the bursts;
+-- data within a burst is never reordered.
 entity axiPipeRW is
 	generic(burstLength: integer := 4;
 			wordWidth: integer := 64;
 			-- when in interleaved address mode, this sets the row size
-			interleaveRowBits: integer := 9);
+			interleaveRowBits: integer := 9;
+			customReadAddrPermutation: boolean := false;
+			customWriteAddrPermutation: boolean := false);
 	port(
 			irqOut: out std_logic; -- synchronous to aclk, one pulse per interrupt
 
@@ -93,7 +101,15 @@ entity axiPipeRW is
 			outp_tready: in std_logic;
 			outp_tvalid: out std_logic;
 			outp_tdata: out std_logic_vector(wordWidth-1 downto 0);
-			outp_flags: out std_logic_vector(flagsWidth-1 downto 0)
+			outp_flags: out std_logic_vector(flagsWidth-1 downto 0);
+
+		-- read/write address permutation
+			readAddrPermIn: out std_logic_vector(memAddrWidth-1 downto 0);
+			readAddrPermFlags: out std_logic_vector(flagsWidth-1 downto 0);
+			readAddrPermOut: in std_logic_vector(memAddrWidth-1 downto 0) := (others=>'0');
+			writeAddrPermIn: out std_logic_vector(memAddrWidth-1 downto 0);
+			writeAddrPermFlags: out std_logic_vector(flagsWidth-1 downto 0);
+			writeAddrPermOut: in std_logic_vector(memAddrWidth-1 downto 0) := (others=>'0')
 		);
 end entity;
 architecture a of axiPipeRW is
@@ -225,18 +241,33 @@ begin
 	
 	totalWritten <= totalWritten+addrIncr when mm_bvalid='1' and rising_edge(mm_aclk);
 
-	interleaver1: entity axiPipeAddrInterleaver
-		generic map(addrBits=>memAddrWidth, rowBits=>interleaveRowBits,
-			burstBits=>(burstOrder+wordSizeOrder))
-		port map(addrIn=>ap1_din, addrOut=>ap1_dout,
-			doTranspose=>ap1_bufferInfo.flags(0),
-			doInterleave=>ap1_bufferInfo.flags(1));
+	readAddrPermIn <= std_logic_vector(ap1_din);
+	readAddrPermFlags <= ap1_bufferInfo.flags;
+g1: if not customReadAddrPermutation generate
+		interleaver1: entity axiPipeAddrInterleaver
+			generic map(addrBits=>memAddrWidth, rowBits=>interleaveRowBits,
+				burstBits=>(burstOrder+wordSizeOrder))
+			port map(addrIn=>ap1_din, addrOut=>ap1_dout,
+				doTranspose=>ap1_bufferInfo.flags(0),
+				doInterleave=>ap1_bufferInfo.flags(1));
+	end generate;
+g2: if customReadAddrPermutation generate
+		ap1_dout <= memAddr_t(readAddrPermOut);
+	end generate;
 
-	interleaver2: entity axiPipeAddrInterleaver
-		generic map(addrBits=>memAddrWidth, rowBits=>interleaveRowBits,
-			burstBits=>(burstOrder+wordSizeOrder))
-		port map(addrIn=>ap2_din, addrOut=>ap2_dout,
-			doTranspose=>ap2_bufferInfo.flags(0),
-			doInterleave=>ap2_bufferInfo.flags(1));
+	writeAddrPermIn <= std_logic_vector(ap2_din);
+	writeAddrPermFlags <= ap2_bufferInfo.flags;
+g3: if not customWriteAddrPermutation generate
+		interleaver2: entity axiPipeAddrInterleaver
+			generic map(addrBits=>memAddrWidth, rowBits=>interleaveRowBits,
+				burstBits=>(burstOrder+wordSizeOrder))
+			port map(addrIn=>ap2_din, addrOut=>ap2_dout,
+				doTranspose=>ap2_bufferInfo.flags(0),
+				doInterleave=>ap2_bufferInfo.flags(1));
+	end generate;
+g4: if customWriteAddrPermutation generate
+		ap2_dout <= memAddr_t(writeAddrPermOut);
+	end generate;
+
 end architecture;
 
