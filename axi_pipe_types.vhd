@@ -6,7 +6,7 @@ package axiPipe_types is
 	constant memAddrWidth: integer := 32;
 	constant bufLengthPagesWidth: integer := 16;
 	constant bufLengthBytesWidth: integer := bufLengthPagesWidth + 12;
-	constant flagsWidth: integer := 4;
+	constant flagsWidth: integer := 7;
 
 	subtype memAddr_t is unsigned(memAddrWidth-1 downto 0);
 	subtype bufLengthPages_t is unsigned(bufLengthPagesWidth-1 downto 0);
@@ -37,6 +37,10 @@ package axiPipe_types is
 	function to_bufferInfo(data: std_logic_vector) return bufferInfo;
 	function bufferInfo_pack(data: bufferInfo) return std_logic_vector;
 	function pagesToBytes(p: bufLengthPages_t) return bufLengthBytes_t;
+
+	-- row and column dimensions refer to the output address (physical matrix dimensions)
+	function transposeAddress(addr: memAddr_t; burstBits,rowsOrder,colsOrder: integer) return memAddr_t;
+	function interleaveAddress(addr: memAddr_t; burstBits,rowsOrder,colsOrder: integer) return memAddr_t;
 end package;
 
 
@@ -46,7 +50,7 @@ package body axiPipe_types is
 	begin
 		res.addr := data(31 downto 12) & (11 downto 0=>'0');
 		res.nPagesOrder := data(3 downto 0);
-		res.flags := std_logic_vector(data(7 downto 4));
+		res.flags := std_logic_vector(data(10 downto 4));
 		res.shouldInterrupt := data(11);
 		return res;
 	end function;
@@ -61,7 +65,7 @@ package body axiPipe_types is
 	begin
 		res(31 downto 12) := std_logic_vector(data.addr(31 downto 12));
 		res(3 downto 0) := std_logic_vector(data.nPagesOrder);
-		res(7 downto 4) := std_logic_vector(data.flags);
+		res(10 downto 4) := std_logic_vector(data.flags);
 		res(11) := data.shouldInterrupt;
 		return res;
 	end function;
@@ -69,6 +73,55 @@ package body axiPipe_types is
 	function pagesToBytes(p: bufLengthPages_t) return bufLengthBytes_t is
 	begin
 		return shift_left(resize(p, bufLengthBytesWidth), 12);
+	end function;
+
+
+	function transposeAddress(addr: memAddr_t; burstBits,rowsOrder,colsOrder: integer) return memAddr_t is
+		variable res: memAddr_t;
+	begin
+		res :=
+			addr(addr'left downto burstBits+rowsOrder+colsOrder) &
+			addr(burstBits+rowsOrder-1 downto burstBits) &
+			addr(burstBits+rowsOrder+colsOrder-1 downto burstBits+rowsOrder) &
+			(burstBits-1 downto 0=>'0');
+		return res;
+	end function;
+
+	function interleaveAddress(addr: memAddr_t; burstBits,rowsOrder,colsOrder: integer) return memAddr_t is
+		variable res: memAddr_t;
+		variable row: unsigned(rowsOrder-1 downto 0);
+		variable col: unsigned(colsOrder-1 downto 0);
+		variable nInterleave, nRes, nExtra, nMatrix: integer;
+	begin
+		-- pick the smaller of the row and col bits as the number of bits to interleave
+		nInterleave := rowsOrder;
+		if colsOrder < rowsOrder then
+			nInterleave := colsOrder;
+		end if;
+
+		col := addr(burstBits+colsOrder-1 downto burstBits);
+		row := addr(burstBits+colsOrder+rowsOrder-1 downto burstBits+colsOrder);
+		for I in 0 to nInterleave-1 loop
+			res(burstBits + I*2) := col(I);
+			res(burstBits + I*2 + 1) := row(I);
+		end loop;
+
+		nRes := burstBits + nInterleave*2;
+		nMatrix := rowsOrder + colsOrder + burstBits;
+		nExtra := rowsOrder + colsOrder - nInterleave*2;
+
+		-- prepend leftover column or row bits
+		if colsOrder > rowsOrder then
+			res(nRes+nExtra-1 downto nRes) := col(col'left downto nInterleave);
+		else
+			res(nRes+nExtra-1 downto nRes) := row(row'left downto nInterleave);
+		end if;
+
+		-- prepend matrix address
+		res(res'left downto nMatrix) := addr(res'left downto nMatrix);
+
+		res(burstBits-1 downto 0) := (others=>'0');
+		return res;
 	end function;
 end axiPipe_types;
 
