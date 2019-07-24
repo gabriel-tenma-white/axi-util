@@ -49,7 +49,9 @@ entity dcram2 is
 	generic(widthRead, widthWrite: integer := 8;
 				-- real depth is 2^depthOrderWrite words of widthWrite bits
 				depthOrderWrite: integer := 9;
-				outputRegistered: boolean := false);
+				outputRegistered: boolean := false;
+				-- 0: auto; 1: block; 2: lut
+				ramType: integer := 0);
 	port(rdclk,wrclk: in std_logic;
 			-- read side; synchronous to rdclk
 			rden: in std_logic;
@@ -72,13 +74,33 @@ architecture a of dcram2 is
 	constant ramWidth: integer := min1(widthWrite, widthRead);
 	constant readAggregation: integer := widthRead/ramWidth;
 	constant writeAggregation: integer := widthWrite/ramWidth;
-	
+	constant writeAggregationOrder: integer := integer(round(log2(real(writeAggregation))));
+
 	--ram
 	type ram1t is array(largerDepth-1 downto 0) of
 		std_logic_vector(ramWidth-1 downto 0);
 	signal ram1: ram1t;
 	
 	signal tmpdata: std_logic_vector(widthRead-1 downto 0);
+
+	function ram_style_str(t, depthOrderWrite: integer) return string is
+	begin
+		if t=0 then
+			if depthOrderWrite >= 8 then
+				return "block";
+			end if;
+			if depthOrderWrite <= 5 then
+				return "distributed";
+			end if;
+			return "";
+		elsif t=1 then
+			return "block";
+		else
+			return "distributed";
+		end if;
+	end function;
+	attribute ram_style : string;
+	attribute ram_style of ram1 : signal is ram_style_str(ramType, depthOrderWrite);
 begin
 	--inferred ram
 	process(rdclk)
@@ -86,14 +108,18 @@ begin
 	begin
 		if rising_edge(rdclk) then
 			if rden='1' then
-				for i in 0 to readAggregation-1 loop
-					tmpdata((i+1)*ramWidth-1 downto i*ramWidth)
-						<= ram1(to_integer(rdaddr)*readAggregation + i);
-				end loop;
+				if readAggregation = 1 then
+					tmpdata <= ram1(to_integer(rdaddr));
+				else
+					for i in 0 to readAggregation-1 loop
+						tmpdata((i+1)*ramWidth-1 downto i*ramWidth)
+							<= ram1(to_integer(rdaddr)*readAggregation + i);
+					end loop;
+				end if;
 			end if;
 		end if;
 	end process;
-	
+
 g1:	if outputRegistered generate
 		rddata <= tmpdata when rising_edge(rdclk);
 	end generate;
@@ -105,10 +131,14 @@ g2:	if not outputRegistered generate
 	begin
 		if(rising_edge(wrclk)) then
 			if(wren='1') then
-				for i in 0 to writeAggregation-1 loop
-					ram1(to_integer(wraddr)*writeAggregation + i)
-						<= wrdata((i+1)*ramWidth-1 downto i*ramWidth);
-				end loop;
+				if writeAggregation = 1 then
+					ram1(to_integer(wraddr)) <= wrdata;
+				else
+					for i in 0 to writeAggregation-1 loop
+						ram1(to_integer(wraddr & to_unsigned(i, writeAggregationOrder)))
+							<= wrdata((i+1)*ramWidth-1 downto i*ramWidth);
+					end loop;
+				end if;
 			end if;
 		end if;
 	end process;
