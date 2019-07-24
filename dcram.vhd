@@ -8,7 +8,9 @@ entity dcram is
 	generic(width: integer := 8;
 				-- real depth is 2^depth_order
 				depthOrder: integer := 9;
-				outputRegistered: boolean := false);
+				outputRegistered: boolean := false;
+				-- 0: auto; 1: block; 2: lut
+				ramType: integer := 0);
 	port(rdclk,wrclk: in std_logic;
 			-- read side; synchronous to rdclk
 			rden: in std_logic;
@@ -30,6 +32,21 @@ architecture a of dcram is
 	signal ram1: ram1t;
 	
 	signal tmpdata: std_logic_vector(width-1 downto 0);
+
+	function ram_style_str(t: integer) return string is
+	begin
+		if t=0 then
+			return "";
+		elsif t=1 then
+			return "block";
+		else
+			return "distributed";
+		end if;
+	end function;
+	--type ramStr_t is array(0 to 2) of string(10 downto 0);
+	--constant ramTypeStr : ramStr_t := ("           ", "block      ", "distributed");
+	attribute ram_style : string;
+	attribute ram_style of ram1 : signal is ram_style_str(ramType);
 begin
 	--inferred ram
 	process(rdclk)
