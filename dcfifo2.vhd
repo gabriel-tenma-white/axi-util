@@ -126,6 +126,7 @@ begin
 	syncRpos: entity greyCDCSync
 		generic map(width=>rdRposResized'length, stages=>syncStages, inputRegistered=>false)
 		port map(srcclk=>rdclk, dstclk=>wrclk, datain=>rdRposResized, dataout=>wrRpos);
+	wrRposM1 <= wrRpos-1 when rising_edge(wrclk);
 
 	--cross wpos from write side to read side
 	syncWpos: entity greyCDCSync
