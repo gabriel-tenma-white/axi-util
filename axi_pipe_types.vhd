@@ -41,6 +41,8 @@ package axiPipe_types is
 	-- row and column dimensions refer to the output address (physical matrix dimensions)
 	function transposeAddress(addr: memAddr_t; burstBits,rowsOrder,colsOrder: integer) return memAddr_t;
 	function interleaveAddress(addr: memAddr_t; burstBits,rowsOrder,colsOrder: integer) return memAddr_t;
+
+	function interleaveBits(a,b: unsigned) return unsigned;
 end package;
 
 
@@ -121,6 +123,30 @@ package body axiPipe_types is
 		res(res'left downto nMatrix) := addr(res'left downto nMatrix);
 
 		res(burstBits-1 downto 0) := (others=>'0');
+		return res;
+	end function;
+
+	function interleaveBits(a,b: unsigned) return unsigned is
+		variable res: unsigned(a'length + b'length - 1 downto 0);
+		variable nInterleave, nExtra: integer;
+	begin
+		-- pick the smaller of the row and col bits as the number of bits to interleave
+		nInterleave := a'length;
+		if b'length < a'length then
+			nInterleave := b'length;
+		end if;
+
+		for I in 0 to nInterleave-1 loop
+			res(I*2) := b(I);
+			res(I*2 + 1) := a(I);
+		end loop;
+
+		if b'length > a'length then
+			res(res'left downto nInterleave*2) := b(b'left downto nInterleave);
+		else
+			res(res'left downto nInterleave*2) := a(a'left downto nInterleave);
+		end if;
+
 		return res;
 	end function;
 end axiPipe_types;
