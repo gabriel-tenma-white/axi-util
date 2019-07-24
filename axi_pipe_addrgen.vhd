@@ -79,8 +79,9 @@ begin
 
 	-- latch fetched buffer info
 	currWritingBuffer <= buffersFeed_data when doFetchWriteBuffer='1' and rising_edge(aclk);
-	currWritingBufferEnd <= currWritingBuffer.addr + pagesToBytes(currWritingBufferNPages) when rising_edge(aclk);
-	currWritingBufferEnd2 <= currWritingBufferEnd - addrIncr when rising_edge(aclk);
+	--currWritingBufferEnd <= currWritingBuffer.addr + pagesToBytes(currWritingBufferNPages) when rising_edge(aclk);
+	--currWritingBufferEnd2 <= currWritingBufferEnd - addrIncr when rising_edge(aclk);
+	currWritingBufferEnd2 <= currWritingBuffer.addr + pagesToBytes(currWritingBufferNPages) - addrIncr when rising_edge(aclk);
 	sc: entity axiPipeSizeCalc
 		port map(clk=>aclk, nPagesOrder=>currWritingBuffer.nPagesOrder, nPages=>currWritingBufferNPages);
 
