@@ -115,7 +115,14 @@ end entity;
 architecture a of axiPipeRW is
 	attribute X_INTERFACE_PARAMETER : string;
 	attribute X_INTERFACE_PARAMETER of mm_aclk: signal is "ASSOCIATED_BUSIF mm:inp:outp";
-	
+	attribute X_INTERFACE_INFO : string;
+	attribute X_INTERFACE_INFO of inp_tvalid: signal is "xilinx.com:interface:axis_rtl:1.0 inp tvalid";
+	attribute X_INTERFACE_INFO of inp_tready: signal is "xilinx.com:interface:axis_rtl:1.0 inp tready";
+	attribute X_INTERFACE_INFO of inp_tdata: signal is "xilinx.com:interface:axis_rtl:1.0 inp tdata";
+	attribute X_INTERFACE_INFO of outp_tvalid: signal is "xilinx.com:interface:axis_rtl:1.0 outp tvalid";
+	attribute X_INTERFACE_INFO of outp_tready: signal is "xilinx.com:interface:axis_rtl:1.0 outp tready";
+	attribute X_INTERFACE_INFO of outp_tdata: signal is "xilinx.com:interface:axis_rtl:1.0 outp tdata";
+
 	constant wordSizeOrder: integer := 3;
 	constant addrIncr: integer := burstLength*(wordWidth/8);
 	constant bytesPerWord: integer := wordWidth/8;
