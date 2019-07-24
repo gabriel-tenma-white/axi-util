@@ -5,6 +5,7 @@ use ieee.std_logic_1164.all;
 USE ieee.math_real.log2;
 USE ieee.math_real.ceil;
 use work.dcfifo;
+use work.oxiToAxiSkid;
 use work.axiPipe_types.all;
 use work.axiConfigRegisters;
 use work.axiPipeAddrGen;
@@ -134,11 +135,16 @@ g2: if not userAddrPerm generate
 
 
 	-- in-flight buffers FIFO
-	bufsFIFO: entity dcfifo
-		generic map(width=>memAddrWidth, depthOrder=>5, singleClock=>true)
-		port map(rdclk=>aclk, wrclk=>aclk,
-				rdvalid=>dcnt_tvalid, rdready=>dcnt_tready, rddata=>bufsFIFOout,
-				wrvalid=>indicator_strobe, wrready=>open, wrdata=>bufsFIFOin);
+	--bufsFIFO: entity dcfifo
+		--generic map(width=>memAddrWidth, depthOrder=>5, singleClock=>true)
+		--port map(rdclk=>aclk, wrclk=>aclk,
+				--rdvalid=>dcnt_tvalid, rdready=>dcnt_tready, rddata=>bufsFIFOout,
+				--wrvalid=>indicator_strobe, wrready=>open, wrdata=>bufsFIFOin);
+	bufsFIFO: entity oxiToAxiSkid
+		generic map(width=>memAddrWidth, depthOrder=>4)
+		port map(aclk=>aclk,
+				dout_tvalid=>dcnt_tvalid, dout_tready=>dcnt_tready, dout_tdata=>bufsFIFOout,
+				din_tstrobe=>indicator_strobe, din_tready=>open, din_tdata=>bufsFIFOin);
 	bufsFIFOin <= bufferInfo_pack(indicator_buffer);
 	dcnt_tdata <= to_bufferInfo(bufsFIFOout);
 
