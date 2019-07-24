@@ -31,6 +31,13 @@ entity dcfifo2Wrapper is
 end entity;
 
 architecture a of dcfifo2Wrapper is
+    attribute X_INTERFACE_INFO : string;
+	attribute X_INTERFACE_INFO of wr_tvalid: signal is "xilinx.com:interface:axis_rtl:1.0 wr tvalid";
+	attribute X_INTERFACE_INFO of wr_tready: signal is "xilinx.com:interface:axis_rtl:1.0 wr tready";
+	attribute X_INTERFACE_INFO of wr_tdata: signal is "xilinx.com:interface:axis_rtl:1.0 wr tdata";
+	attribute X_INTERFACE_INFO of rd_tvalid: signal is "xilinx.com:interface:axis_rtl:1.0 rd tvalid";
+	attribute X_INTERFACE_INFO of rd_tready: signal is "xilinx.com:interface:axis_rtl:1.0 rd tready";
+	attribute X_INTERFACE_INFO of rd_tdata: signal is "xilinx.com:interface:axis_rtl:1.0 rd tdata";
 begin
 	assert depthOrderOut=(depthOrderIn+integer(ceil(log2(real(widthIn)/real(widthOut)))));
 	fifo: entity dcfifo2
