@@ -20,6 +20,7 @@ architecture behaviour of test_axiReorderBuffer is
 	signal inClk, inpValid, inReady,inReady1,inReady2,inReady3: std_logic := '0';
 	signal outData: dataOut_t;
 	signal outValid, outReady: std_logic := '0';
+	signal outFlags: std_logic_vector(1 downto 0);
 	
 	signal bitPermIn0, bitPermIn1: unsigned(4 downto 0);
 	signal bitPermCount0, bitPermCount1: unsigned(0 downto 0);
@@ -66,10 +67,10 @@ architecture behaviour of test_axiReorderBuffer is
 begin
 
 	inst: entity axiReorderBuffer
-		generic map(wordWidth=>16,depthOrder=>5, repPeriod=>2)
+		generic map(wordWidth=>16, tuserWidth=>2, depthOrder=>5, repPeriod=>2)
 		port map(inClk, '0',
-			inpValid, inReady, inData,
-			outValid, outReady, outData,
+			inpValid, inReady, inData, inData(6 downto 5),
+			outValid, outReady, outData, outFlags,
 			bitPermIn0, bitPermIn1,
 			bitPermCount0, bitPermCount1,
 			bitPermOut0, bitPermOut1);

@@ -20,6 +20,7 @@ architecture behaviour of test_axiTransposer is
 	signal inData: data_t;
 	signal inClk, inpValid, inReady,inReady1,inReady2,inReady3: std_logic := '0';
 	signal outData: dataOut_t;
+	signal inFlags, outFlags: std_logic_vector(3 downto 0);
 	signal outValid, outReady: std_logic := '0';
 	
 	constant inClkHPeriod: time := 0.5 ns;
@@ -59,10 +60,11 @@ architecture behaviour of test_axiTransposer is
 begin
 
 	inst: entity axiTransposer
-		generic map(wordWidth=>16, rowsOrder=>rowsOrder, colsOrder=>colsOrder)
+		generic map(wordWidth=>16, tuserWidth=>4, rowsOrder=>rowsOrder, colsOrder=>colsOrder)
 		port map(inClk, '0',
-			inpValid, inReady, inData,
-			outValid, outReady, outData);
+			inpValid, inReady, inData, inFlags,
+			outValid, outReady, outData, outFlags);
+	inFlags <= inData(depthOrder+1 downto depthOrder) & "01";
 
 
 	-- feed data in
@@ -95,6 +97,7 @@ begin
 						report "index " & integer'image(expectValue) & ", expected "
 							& integer'image(to_integer(unsigned(expectData))) & ", got "
 							& integer'image(to_integer(unsigned(outData)));
+					assert outFlags(3 downto 2) = outData(depthOrder+1 downto depthOrder);
 					expectValue := expectValue+1;
 				end if;
 			else

@@ -41,6 +41,9 @@ entity axiTransposer is
 	-- (colsOrder is the minor size and rowsOrder the major size)
 	-- unless swapRowColSize is '1'
 	generic(wordWidth: integer := 8;
+			tuserWidth: integer := 2;
+			doTransposeFlagNum: integer := 0;
+			swapRowColSizeFlagNum: integer := 1;
 			rowsOrder, colsOrder: integer);
 	port(
 			aclk, reset: in std_logic;
@@ -49,15 +52,13 @@ entity axiTransposer is
 			din_tvalid: in std_logic;
 			din_tready: out std_logic;
 			din_tdata: in std_logic_vector(wordWidth-1 downto 0);
+			din_tuser: in std_logic_vector(tuserWidth-1 downto 0) := (0=>'1', 1=>'0', others=>'0');
 
 		-- axi stream output
 			dout_tvalid: out std_logic;
 			dout_tready: in std_logic;
 			dout_tdata: out std_logic_vector(wordWidth-1 downto 0);
-
-		-- config
-			doTranspose: in std_logic := '1';
-			swapRowColSize: in std_logic := '0'
+			dout_tuser: out std_logic_vector(tuserWidth-1 downto 0)
 		);
 end entity;
 architecture a of axiTransposer is
@@ -67,9 +68,11 @@ architecture a of axiTransposer is
 	attribute X_INTERFACE_INFO of din_tvalid: signal is "xilinx.com:interface:axis_rtl:1.0 din tvalid";
 	attribute X_INTERFACE_INFO of din_tready: signal is "xilinx.com:interface:axis_rtl:1.0 din tready";
 	attribute X_INTERFACE_INFO of din_tdata: signal is "xilinx.com:interface:axis_rtl:1.0 din tdata";
+	attribute X_INTERFACE_INFO of din_tuser: signal is "xilinx.com:interface:axis_rtl:1.0 din tuser";
 	attribute X_INTERFACE_INFO of dout_tvalid: signal is "xilinx.com:interface:axis_rtl:1.0 dout tvalid";
 	attribute X_INTERFACE_INFO of dout_tready: signal is "xilinx.com:interface:axis_rtl:1.0 dout tready";
 	attribute X_INTERFACE_INFO of dout_tdata: signal is "xilinx.com:interface:axis_rtl:1.0 dout tdata";
+	attribute X_INTERFACE_INFO of dout_tuser: signal is "xilinx.com:interface:axis_rtl:1.0 dout tuser";
 
 	constant depthOrder: integer := rowsOrder+colsOrder;
 	constant repPeriod: integer := depthOrder;
@@ -82,15 +85,16 @@ architecture a of axiTransposer is
 	signal bitPermOut0, bitPermOut1: unsigned(depthOrder-1 downto 0);
 	signal bitPermCE0, bitPermCE1: std_logic;
 begin
-	doTranspose1 <= doTranspose when rising_edge(aclk);
-	swapRowColSize1 <= swapRowColSize when rising_edge(aclk);
+	doTranspose1 <= din_tuser(doTransposeFlagNum);
+	swapRowColSize1 <= din_tuser(swapRowColSizeFlagNum);
 
 
 	rb: entity axiReorderBuffer
-		generic map(wordWidth=>wordWidth, depthOrder=>depthOrder, repPeriod=>repPeriod, addrPermDelay=>1)
+		generic map(wordWidth=>wordWidth, tuserWidth=>tuserWidth,
+					depthOrder=>depthOrder, repPeriod=>repPeriod, addrPermDelay=>1)
 		port map(aclk=>aclk, reset=>reset,
-			din_tvalid=>din_tvalid, din_tready=>din_tready, din_tdata=>din_tdata,
-			dout_tvalid=>dout_tvalid, dout_tready=>dout_tready, dout_tdata=>dout_tdata,
+			din_tvalid=>din_tvalid, din_tready=>din_tready, din_tdata=>din_tdata, din_tuser=>din_tuser,
+			dout_tvalid=>dout_tvalid, dout_tready=>dout_tready, dout_tdata=>dout_tdata, dout_tuser=>dout_tuser,
 
 			bitPermIn0=>bitPermIn0, bitPermIn1=>bitPermIn1,
 			bitPermCount0=>bitPermCount0, bitPermCount1=>bitPermCount1,

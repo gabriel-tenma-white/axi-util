@@ -43,8 +43,6 @@ entity axiPipeWriter is
 			irq: out std_logic;
 
 		-- streaming interface, input (write data to memory)
-		-- flags is only valid at the beginning of a frame
-			streamIn_flags: out flags_t;
 			streamIn_tvalid: in std_logic;
 			streamIn_tready: out std_logic;
 			streamIn_tdata: in std_logic_vector(wordWidth-1 downto 0);
@@ -175,7 +173,7 @@ g2: if not userAddrPerm generate
 	gateIn_tvalid <= streamIn_tvalid or reset2;
 
 
-	streamIn_flags <= currBuffer.flags;
+	--streamIn_flags <= currBuffer.flags;
 	irq <= bufComplete_strobe and bufComplete.shouldInterrupt when rising_edge(aclk);
 end architecture;
 

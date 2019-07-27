@@ -43,10 +43,13 @@ package axiPipe_types is
 	function interleaveAddress(addr: memAddr_t; burstBits,rowsOrder,colsOrder: integer) return memAddr_t;
 
 	function interleaveBits(a,b: unsigned) return unsigned;
+
+	function ceilLog2(val: integer) return integer;
 end package;
 
 
 package body axiPipe_types is
+
 	function to_bufferInfo (data: memAddr_t) return bufferInfo is
 		variable res: bufferInfo;
 	begin
@@ -148,6 +151,20 @@ package body axiPipe_types is
 		end if;
 
 		return res;
+	end function;
+
+
+	
+	function ceilLog2(val: integer) return integer is
+		variable tmp: integer;
+	begin
+		for I in 0 to 32 loop
+			tmp := 2**I;
+			if tmp >= val then
+				return I;
+			end if;
+		end loop;
+		return -1;
 	end function;
 end axiPipe_types;
 

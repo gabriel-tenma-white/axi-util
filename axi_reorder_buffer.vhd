@@ -33,7 +33,7 @@ use work.sr_bit;
 use work.sr_unsigned;
 
 entity axiReorderBuffer is
-	generic(wordWidth: integer;
+	generic(wordWidth, tuserWidth: integer;
 			depthOrder: integer;
 			repPeriod: integer;
 			addrPermDelay: integer := 0);
@@ -44,11 +44,13 @@ entity axiReorderBuffer is
 			din_tvalid: in std_logic;
 			din_tready: out std_logic;
 			din_tdata: in std_logic_vector(wordWidth-1 downto 0);
+			din_tuser: in std_logic_vector(tuserWidth-1 downto 0);
 
 		-- axi stream output
 			dout_tvalid: out std_logic;
 			dout_tready: in std_logic;
 			dout_tdata: out std_logic_vector(wordWidth-1 downto 0);
+			dout_tuser: out std_logic_vector(tuserWidth-1 downto 0);
 
 		-- external bit permutor
 			bitPermIn0, bitPermIn1: out unsigned(depthOrder-1 downto 0);
@@ -70,16 +72,21 @@ architecture a of axiReorderBuffer is
 	attribute X_INTERFACE_INFO of din_tvalid: signal is "xilinx.com:interface:axis_rtl:1.0 din tvalid";
 	attribute X_INTERFACE_INFO of din_tready: signal is "xilinx.com:interface:axis_rtl:1.0 din tready";
 	attribute X_INTERFACE_INFO of din_tdata: signal is "xilinx.com:interface:axis_rtl:1.0 din tdata";
+	attribute X_INTERFACE_INFO of din_tuser: signal is "xilinx.com:interface:axis_rtl:1.0 din tuser";
 	attribute X_INTERFACE_INFO of dout_tvalid: signal is "xilinx.com:interface:axis_rtl:1.0 dout tvalid";
 	attribute X_INTERFACE_INFO of dout_tready: signal is "xilinx.com:interface:axis_rtl:1.0 dout tready";
 	attribute X_INTERFACE_INFO of dout_tdata: signal is "xilinx.com:interface:axis_rtl:1.0 dout tdata";
+	attribute X_INTERFACE_INFO of dout_tuser: signal is "xilinx.com:interface:axis_rtl:1.0 dout tuser";
 
 
 	-- write side
 	-- counters are (depthOrder+1) bits because we need to distinguish "full" from 0.
 	signal wAddr, wAddrNext, wAddrPrev: unsigned(depthOrder downto 0) := (others=>'0');
+	signal wAddrUpper: unsigned(1 downto 0);
 	signal wData: std_logic_vector(wordWidth-1 downto 0);
 	signal wIncrement, wReady, wEnable, wEnable0: std_logic;
+	signal tuser1: std_logic_vector(tuserWidth-1 downto 0);
+	signal sampleFlags0, sampleFlags1, sampleFlags2: std_logic;
 	
 	-- read side
 	signal rAddr, rAddrNext, rAddrPermuted, rAddrPrev: unsigned(depthOrder downto 0)
@@ -145,8 +152,15 @@ begin
 				wren=>wEnable, wraddr=>bitPermOut0, wrdata=>wData);
 
 	-- generation counter
-	bitPermInverse1 <= bitPermInverse when wAddr(wAddr'left-1)='0' and rising_edge(aclk);
-	doReorder1 <= doReorder when wAddr(wAddr'left-1)='0' and rising_edge(aclk);
+	wAddrUpper <= wAddr(wAddr'left-1 downto wAddr'left-2);
+	sampleFlags0 <= '1' when wAddrUpper="10" else '0';
+	sampleFlags1 <= sampleFlags0 when rising_edge(aclk);
+	sampleFlags2 <= sampleFlags1 and din_tvalid;
+
+	bitPermInverse1 <= bitPermInverse when sampleFlags2='1' and rising_edge(aclk);
+	doReorder1 <= doReorder when sampleFlags2='1' and rising_edge(aclk);
+	tuser1 <= din_tuser when sampleFlags2='1' and rising_edge(aclk);
+	dout_tuser <= tuser1 when rAddr(depthOrder-1 downto 0)=(1+addrPermDelay) and rising_edge(aclk);
 
 	generationNext <= to_unsigned(0, generation'length) when bitPermInverse1='0' and generation=(repPeriod-1) else
 						generation+1 when bitPermInverse1='0' else

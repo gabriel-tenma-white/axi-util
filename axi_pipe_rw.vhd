@@ -95,13 +95,12 @@ entity axiPipeRW is
 			inp_tready: out std_logic;
 			inp_tvalid: in std_logic;
 			inp_tdata: in std_logic_vector(wordWidth-1 downto 0);
-			inp_flags: out std_logic_vector(flagsWidth-1 downto 0);
 
 		-- axi stream output
 			outp_tready: in std_logic;
 			outp_tvalid: out std_logic;
 			outp_tdata: out std_logic_vector(wordWidth-1 downto 0);
-			outp_flags: out std_logic_vector(flagsWidth-1 downto 0);
+			outp_tuser: out std_logic_vector(flagsWidth-1 downto 0);
 
 		-- read/write address permutation
 			readAddrPermIn: out std_logic_vector(memAddrWidth-1 downto 0);
@@ -122,6 +121,7 @@ architecture a of axiPipeRW is
 	attribute X_INTERFACE_INFO of outp_tvalid: signal is "xilinx.com:interface:axis_rtl:1.0 outp tvalid";
 	attribute X_INTERFACE_INFO of outp_tready: signal is "xilinx.com:interface:axis_rtl:1.0 outp tready";
 	attribute X_INTERFACE_INFO of outp_tdata: signal is "xilinx.com:interface:axis_rtl:1.0 outp tdata";
+	attribute X_INTERFACE_INFO of outp_tuser: signal is "xilinx.com:interface:axis_rtl:1.0 outp tuser";
 
 	constant wordSizeOrder: integer := 3;
 	constant addrIncr: integer := burstLength*(wordWidth/8);
@@ -219,7 +219,7 @@ begin
 			
 			irq=>readerIRQ,
 			
-			streamOut_flags=>outp_flags,
+			streamOut_flags=>outp_tuser,
 			streamOut_tvalid=>outp_tvalid,
 			streamOut_tready=>outp_tready,
 			streamOut_tdata=>outp_tdata);
@@ -240,8 +240,7 @@ begin
 			addrPerm_dout=>ap2_dout,
 			
 			irq=>writerIRQ,
-			
-			streamIn_flags=>inp_flags,
+
 			streamIn_tvalid=>inp_tvalid,
 			streamIn_tready=>inp_tready,
 			streamIn_tdata=>inp_tdata);

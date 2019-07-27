@@ -8,7 +8,7 @@ use work.dcfifo;
 use work.oxiToAxiSkid;
 use work.axiPipe_types.all;
 use work.axiPipeAddrGen;
-use work.axiPipeDataCount;
+use work.axiPipeDataCount2;
 
 -- given a stream of frame start addresses, read bursts from memory to streamOut.
 entity axiPipeReader is
@@ -38,11 +38,12 @@ entity axiPipeReader is
 			irq: out std_logic;
 
 		-- streaming interface, output (read data from memory)
-		-- flags is only valid at the beginning of each frame
+		-- flags is the flags from the buffer associated with the current output word.
 			streamOut_flags: out flags_t;
 			streamOut_tvalid: out std_logic;
 			streamOut_tready: in std_logic;
 			streamOut_tdata: out std_logic_vector(wordWidth-1 downto 0);
+			streamOut_tlast: out std_logic;
 
 		-- user defined address permutation (optional)
 			addrPerm_din: out memAddr_t;
@@ -71,12 +72,11 @@ architecture a of axiPipeReader is
 	
 	-- data count
 	signal bufsFIFOin, bufsFIFOout: std_logic_vector(memAddrWidth-1 downto 0);
-	signal dcnt_tdata: bufferInfo;
-	signal dcnt_tready, dcnt_tvalid: std_logic;
-	signal dcnt_bytes: memAddr_t;
+	signal dcnt_bf_tdata: bufferInfo;
+	signal dcnt_bf_tready, dcnt_bf_tvalid: std_logic;
+	signal dout_tvalid_and_tready: std_logic;
 	signal dcnt_currBuffer: bufferInfo;
-	signal bufComplete: bufferInfo;
-	signal bufComplete_strobe: std_logic;
+	signal dout_tlast, tlast1, irq0: std_logic;
 begin
 	-- #####################################
 	-- address generator
@@ -124,27 +124,32 @@ g2: if not userAddrPerm generate
 	bufsFIFO: entity oxiToAxiSkid
 		generic map(width=>memAddrWidth, depthOrder=>4)
 		port map(aclk=>aclk,
-				dout_tvalid=>dcnt_tvalid, dout_tready=>dcnt_tready, dout_tdata=>bufsFIFOout,
+				dout_tvalid=>dcnt_bf_tvalid, dout_tready=>dcnt_bf_tready, dout_tdata=>bufsFIFOout,
 				din_tstrobe=>indicator_strobe, din_tready=>open, din_tdata=>bufsFIFOin);
 	bufsFIFOin <= bufferInfo_pack(indicator_buffer);
-	dcnt_tdata <= to_bufferInfo(bufsFIFOout);
+	dcnt_bf_tdata <= to_bufferInfo(bufsFIFOout);
 
 	-- data count
-	dcnt: entity axiPipeDataCount
+	dcnt: entity axiPipeDataCount2
 		port map(aclk=>aclk,
-			buffersFeed_data=>dcnt_tdata, buffersFeed_valid=>dcnt_tvalid, buffersFeed_ready=>dcnt_tready,
-			currBuffer=>dcnt_currBuffer, currBuffer_valid=>open,
-			bytesIssued=>dcnt_bytes, indicator_strobe=>bufComplete_strobe, indicator_buffer=>bufComplete);
+			buffersFeed_data=>dcnt_bf_tdata,
+			buffersFeed_valid=>dcnt_bf_tvalid,
+			buffersFeed_ready=>dcnt_bf_tready,
+			dout_tvalid_and_tready=>dout_tvalid_and_tready,
+			dout_curBuffer=>dcnt_currBuffer, dout_tlast=>dout_tlast);
 
-	dcnt_bytes <= to_unsigned(bytesPerWord, memAddrWidth) when mm_rvalid='1' and streamOut_tready='1' else
-					to_unsigned(0, memAddrWidth);
+	dout_tvalid_and_tready <= mm_rvalid and streamOut_tready;
 
 	-- #####################################
 	-- read response
 	streamOut_tvalid <= mm_rvalid;
 	streamOut_tdata <= mm_rdata;
+	streamOut_tlast <= dout_tlast;
 	mm_rready <= streamOut_tready;
 	streamOut_flags <= dcnt_currBuffer.flags;
-	irq <= bufComplete_strobe and bufComplete.shouldInterrupt when rising_edge(aclk);
+
+	tlast1 <= dout_tlast when rising_edge(aclk);
+	irq0 <= '1' when dout_tlast='1' and tlast1='0' and dcnt_currBuffer.shouldInterrupt='1' else '0';
+	irq <= irq0 when rising_edge(aclk);
 end architecture;
 
