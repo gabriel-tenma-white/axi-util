@@ -15,8 +15,8 @@ entity greycdcsync is
 			dataout: out unsigned(width-1 downto 0));
 end entity;
 architecture a of greyCDCSync is
-	signal datain1,dataout0: unsigned(width-1 downto 0);
-	signal grey0,greyCDCSyncAsyncSource,greyCDCSyncAsyncTarget: std_logic_vector(width-1 downto 0);
+	signal datain1,dataout0: unsigned(width-1 downto 0) := (others=>'0');
+	signal grey0,greyCDCSyncAsyncSource,greyCDCSyncAsyncTarget: std_logic_vector(width-1 downto 0) := (others=>'0');
 begin
 g1: if inputRegistered generate
 		datain1 <= datain when rising_edge(srcclk);
