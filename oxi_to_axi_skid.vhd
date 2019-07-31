@@ -4,7 +4,7 @@ use ieee.numeric_std.all;
 use ieee.std_logic_1164.all;
 
 -- a shallow fifo for converting oxi to axi, SRL16 based
-entity oxiToAxiSkid is
+entity oxitoaxiskid is
 	generic(width: integer := 8;
 			depthOrder: integer := 4);
 	port(aclk: in std_logic;
@@ -27,7 +27,7 @@ architecture a of oxiToAxiSkid is
 	
 	signal rValid, rReady: std_logic;
 	signal rData: std_logic_vector(width-1 downto 0);
-	signal outCE, outCE1, outValid: std_logic;
+	signal outCE, outCE1, outValid: std_logic := '0';
 
 	signal ready0: std_logic;
 
@@ -59,7 +59,7 @@ begin
 
 	-- flow control
 	outCE1 <= outCE when rising_edge(aclk);
-	ready0 <= '1' when cnt=0 else
+	ready0 <= '1' when cnt=cntEmpty else
 				'1' when outCE1='1' else
 				'0';
 	din_tready <= ready0 when rising_edge(aclk);
