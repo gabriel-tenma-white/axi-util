@@ -43,7 +43,8 @@ use work.axiDelay;
 entity dcfifo2 is
 	generic(widthIn, widthOut: integer := 8;
 				-- real depth is 2^depthOrderIn words of widthIn
-				depthOrderIn: integer := 9);
+				depthOrderIn: integer := 9;
+				outputRegisters: integer := 1);
 	port(rdclk,wrclk: in std_logic;
 			
 			-- read side; synchronous to rdclk
@@ -110,7 +111,7 @@ begin
 		generic map(widthRead=>widthOut, widthWrite=>widthIn,
 					depthOrderWrite=>depthOrderIn)
 		port map(rdclk=>rdclk,wrclk=>wrclk,								--clocks
-			rden=>rdQueueReady,rdaddr=>rdRpos,rddata=>rddata,			--read side
+			rden=>rdQueueReady,rdaddr=>rdRpos,rddata=>ram1rddata,		--read side
 			wren=>'1',wraddr=>wrWpos,wrdata=>wrdata);					--write side
 	
 	--grey code
@@ -146,11 +147,13 @@ begin
 	-- the ram adds 1 cycle of delay, so we have to delay valid
 	-- to compensate; however, to preserve correct AXI semantics we
 	-- need some extra logic
-	del: entity axiDelay generic map(width=>widthOut, validDelay=>1, dataDelay=>0)
+	del: entity axiDelay
+		generic map(width=>widthOut,
+					validDelay=>outputRegisters+1, dataDelay=>outputRegisters)
 		port map(clk=>rdclk,inReady=>rdQueueReady,
-		inValid=>rdPossible,inData=>(others=>'0'),
-		outReady=>rdready,outValid=>rdvalid,outData=>open);
-	
+			inValid=>rdPossible,inData=>ram1rddata,
+			outReady=>rdready,outValid=>rdvalid,outData=>rddata);
+
 	--queue logic: write side
 	--		check if we should do a write
 	wrPossible <= '0' when wrRposM1 = wrWpos else '1';
