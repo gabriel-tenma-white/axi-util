@@ -9,12 +9,13 @@ use work.axiPipeSizeCalc;
 
 -- given a feed of buffers and byte counts, issue an indicator whenever
 -- a buffer was finished.
-entity axiPipeDataCount is
+entity axipipedatacount is
 	port(
 			aclk: in std_logic;
 
 		-- buffers feed in
 			buffersFeed_data: in bufferInfo;
+			buffersFeed_sizeBytes: in bufLengthBytes_t;
 			buffersFeed_valid: in std_logic;
 			buffersFeed_ready: out std_logic;
 
@@ -61,9 +62,10 @@ begin
 					to_unsigned(0, accumSub'length);
 	accumSub <= accumSubNext when rising_edge(aclk);
 
-	sc: entity axiPipeSizeCalc
-		port map(clk=>aclk, nPagesOrder=>curBuffer.nPagesOrder, nPages=>curPages);
-	curLength <= pagesToBytes(curPages);
+	--sc: entity axiPipeSizeCalc
+	--	port map(clk=>aclk, nPagesOrder=>curBuffer.nPagesOrder, nPages=>curPages);
+	--curLength <= pagesToBytes(curPages);
+	curLength <= buffersFeed_sizeBytes when state=FETCHING and rising_edge(aclk);
 
 
 	currBuffer <= curBuffer;

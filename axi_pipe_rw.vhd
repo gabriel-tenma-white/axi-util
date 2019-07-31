@@ -95,12 +95,14 @@ entity axiPipeRW is
 			inp_tready: out std_logic;
 			inp_tvalid: in std_logic;
 			inp_tdata: in std_logic_vector(wordWidth-1 downto 0);
+			inp_tlast: in std_logic;
 
 		-- axi stream output
 			outp_tready: in std_logic;
 			outp_tvalid: out std_logic;
 			outp_tdata: out std_logic_vector(wordWidth-1 downto 0);
 			outp_tuser: out std_logic_vector(flagsWidth-1 downto 0);
+			outp_tlast: out std_logic;
 
 		-- read/write address permutation
 			readAddrPermIn: out std_logic_vector(memAddrWidth-1 downto 0);
@@ -118,10 +120,12 @@ architecture a of axiPipeRW is
 	attribute X_INTERFACE_INFO of inp_tvalid: signal is "xilinx.com:interface:axis_rtl:1.0 inp tvalid";
 	attribute X_INTERFACE_INFO of inp_tready: signal is "xilinx.com:interface:axis_rtl:1.0 inp tready";
 	attribute X_INTERFACE_INFO of inp_tdata: signal is "xilinx.com:interface:axis_rtl:1.0 inp tdata";
+	attribute X_INTERFACE_INFO of inp_tlast: signal is "xilinx.com:interface:axis_rtl:1.0 inp tlast";
 	attribute X_INTERFACE_INFO of outp_tvalid: signal is "xilinx.com:interface:axis_rtl:1.0 outp tvalid";
 	attribute X_INTERFACE_INFO of outp_tready: signal is "xilinx.com:interface:axis_rtl:1.0 outp tready";
 	attribute X_INTERFACE_INFO of outp_tdata: signal is "xilinx.com:interface:axis_rtl:1.0 outp tdata";
 	attribute X_INTERFACE_INFO of outp_tuser: signal is "xilinx.com:interface:axis_rtl:1.0 outp tuser";
+	attribute X_INTERFACE_INFO of outp_tlast: signal is "xilinx.com:interface:axis_rtl:1.0 outp tlast";
 
 	constant wordSizeOrder: integer := 3;
 	constant addrIncr: integer := burstLength*(wordWidth/8);
@@ -222,7 +226,8 @@ begin
 			streamOut_flags=>outp_tuser,
 			streamOut_tvalid=>outp_tvalid,
 			streamOut_tready=>outp_tready,
-			streamOut_tdata=>outp_tdata);
+			streamOut_tdata=>outp_tdata,
+			streamOut_tlast=>outp_tlast);
 	
 	writer: entity axiPipeWriter
 		generic map(burstLength=>burstLength, wordWidth=>wordWidth, userAddrPerm=>true)
@@ -243,7 +248,10 @@ begin
 
 			streamIn_tvalid=>inp_tvalid,
 			streamIn_tready=>inp_tready,
-			streamIn_tdata=>inp_tdata);
+			streamIn_tdata=>inp_tdata,
+			streamIn_tlast=>inp_tlast);
+	
+	irqOut <= writerIRQ;
 	
 	totalWritten <= totalWritten+addrIncr when mm_bvalid='1' and rising_edge(mm_aclk);
 
