@@ -105,11 +105,13 @@ entity axiBurstTransposer is
 		din_tready: out std_logic;
 		din_tdata: in std_logic_vector(width-1 downto 0);
 		din_tuser: in std_logic_vector(tuserWidth-1 downto 0) := (others=>'1');
+		din_tlast: in std_logic;
 
 		dout_tvalid: out std_logic;
 		dout_tready: in std_logic;
 		dout_tdata: out std_logic_vector(width-1 downto 0);
-		dout_tuser: out std_logic_vector(tuserWidth-1 downto 0));
+		dout_tuser: out std_logic_vector(tuserWidth-1 downto 0);
+		dout_tlast: out std_logic);
 end entity;
 architecture a of axiBurstTransposer is
 	attribute X_INTERFACE_PARAMETER : string;
@@ -119,28 +121,31 @@ architecture a of axiBurstTransposer is
 	attribute X_INTERFACE_INFO of din_tready: signal is "xilinx.com:interface:axis_rtl:1.0 din tready";
 	attribute X_INTERFACE_INFO of din_tdata: signal is "xilinx.com:interface:axis_rtl:1.0 din tdata";
 	attribute X_INTERFACE_INFO of din_tuser: signal is "xilinx.com:interface:axis_rtl:1.0 din tuser";
+	attribute X_INTERFACE_INFO of din_tlast: signal is "xilinx.com:interface:axis_rtl:1.0 din tlast";
 	attribute X_INTERFACE_INFO of dout_tvalid: signal is "xilinx.com:interface:axis_rtl:1.0 dout tvalid";
 	attribute X_INTERFACE_INFO of dout_tready: signal is "xilinx.com:interface:axis_rtl:1.0 dout tready";
 	attribute X_INTERFACE_INFO of dout_tdata: signal is "xilinx.com:interface:axis_rtl:1.0 dout tdata";
 	attribute X_INTERFACE_INFO of dout_tuser: signal is "xilinx.com:interface:axis_rtl:1.0 dout tuser";
+	attribute X_INTERFACE_INFO of dout_tlast: signal is "xilinx.com:interface:axis_rtl:1.0 dout tlast";
 	signal i_tstrobe, i_tready, i_tready1, i_doTranspose: std_logic;
-	signal i_tdata, o_tdata: std_logic_vector(width+tuserWidth-1 downto 0);
+	signal i_tdata, o_tdata: std_logic_vector(width+tuserWidth downto 0);
 begin
 	-- convert axi to oxi
-	i_tdata <= din_tuser & din_tdata when rising_edge(aclk);
+	i_tdata <= din_tlast & din_tuser & din_tdata when rising_edge(aclk);
 	i_doTranspose <= din_tuser(doTransposeFlagNum) when rising_edge(aclk);
 	i_tstrobe <= din_tvalid and i_tready1 when rising_edge(aclk);
 	i_tready1 <= i_tready when rising_edge(aclk);
 	din_tready <= i_tready1;
 
 	inst: entity oxiToAxiBurstTransposer
-		generic map(width=>width+tuserWidth)
+		generic map(width=>width+tuserWidth+1)
 		port map(aclk=>aclk,
 			din_tstrobe=>i_tstrobe, din_tready=>i_tready, din_tdata=>i_tdata,
 			doTranspose=>i_doTranspose,
 			dout_tvalid=>dout_tvalid, dout_tready=>dout_tready, dout_tdata=>o_tdata);
 
+	dout_tlast <= o_tdata(o_tdata'left);
 	dout_tdata <= o_tdata(dout_tdata'range);
-	dout_tuser <= o_tdata(o_tdata'left downto dout_tdata'length);
+	dout_tuser <= o_tdata(o_tdata'left-1 downto dout_tdata'length);
 end a;
 

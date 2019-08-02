@@ -62,8 +62,8 @@ begin
 	inst: entity axiTransposer
 		generic map(wordWidth=>16, tuserWidth=>4, rowsOrder=>rowsOrder, colsOrder=>colsOrder)
 		port map(inClk, '0',
-			inpValid, inReady, inData, inFlags,
-			outValid, outReady, outData, outFlags);
+			inpValid, inReady, inData, inFlags, '0',
+			outValid, outReady, outData, outFlags, open);
 	inFlags <= inData(depthOrder+1 downto depthOrder) & "01";
 
 

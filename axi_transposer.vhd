@@ -53,12 +53,14 @@ entity axiTransposer is
 			din_tready: out std_logic;
 			din_tdata: in std_logic_vector(wordWidth-1 downto 0);
 			din_tuser: in std_logic_vector(tuserWidth-1 downto 0) := (0=>'1', 1=>'0', others=>'0');
+			din_tlast: in std_logic := '0';
 
 		-- axi stream output
 			dout_tvalid: out std_logic;
 			dout_tready: in std_logic;
 			dout_tdata: out std_logic_vector(wordWidth-1 downto 0);
-			dout_tuser: out std_logic_vector(tuserWidth-1 downto 0)
+			dout_tuser: out std_logic_vector(tuserWidth-1 downto 0);
+			dout_tlast: out std_logic
 		);
 end entity;
 architecture a of axiTransposer is
@@ -69,10 +71,12 @@ architecture a of axiTransposer is
 	attribute X_INTERFACE_INFO of din_tready: signal is "xilinx.com:interface:axis_rtl:1.0 din tready";
 	attribute X_INTERFACE_INFO of din_tdata: signal is "xilinx.com:interface:axis_rtl:1.0 din tdata";
 	attribute X_INTERFACE_INFO of din_tuser: signal is "xilinx.com:interface:axis_rtl:1.0 din tuser";
+	attribute X_INTERFACE_INFO of din_tlast: signal is "xilinx.com:interface:axis_rtl:1.0 din tlast";
 	attribute X_INTERFACE_INFO of dout_tvalid: signal is "xilinx.com:interface:axis_rtl:1.0 dout tvalid";
 	attribute X_INTERFACE_INFO of dout_tready: signal is "xilinx.com:interface:axis_rtl:1.0 dout tready";
 	attribute X_INTERFACE_INFO of dout_tdata: signal is "xilinx.com:interface:axis_rtl:1.0 dout tdata";
 	attribute X_INTERFACE_INFO of dout_tuser: signal is "xilinx.com:interface:axis_rtl:1.0 dout tuser";
+	attribute X_INTERFACE_INFO of dout_tlast: signal is "xilinx.com:interface:axis_rtl:1.0 dout tlast";
 
 	constant depthOrder: integer := rowsOrder+colsOrder;
 	constant repPeriod: integer := depthOrder;
@@ -93,8 +97,10 @@ begin
 		generic map(wordWidth=>wordWidth, tuserWidth=>tuserWidth,
 					depthOrder=>depthOrder, repPeriod=>repPeriod, addrPermDelay=>1)
 		port map(aclk=>aclk, reset=>reset,
-			din_tvalid=>din_tvalid, din_tready=>din_tready, din_tdata=>din_tdata, din_tuser=>din_tuser,
-			dout_tvalid=>dout_tvalid, dout_tready=>dout_tready, dout_tdata=>dout_tdata, dout_tuser=>dout_tuser,
+			din_tvalid=>din_tvalid, din_tready=>din_tready,
+			din_tdata=>din_tdata, din_tuser=>din_tuser, din_tlast=>din_tlast,
+			dout_tvalid=>dout_tvalid, dout_tready=>dout_tready,
+			dout_tdata=>dout_tdata, dout_tuser=>dout_tuser, dout_tlast=>dout_tlast,
 
 			bitPermIn0=>bitPermIn0, bitPermIn1=>bitPermIn1,
 			bitPermCount0=>bitPermCount0, bitPermCount1=>bitPermCount1,
