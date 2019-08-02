@@ -24,6 +24,7 @@ architecture a of oxiToAxiSkid is
 	
 	signal cnt, cntNext: unsigned(depthOrder-1 downto 0) := (others=>'1');
 	constant cntEmpty: unsigned(depthOrder-1 downto 0) := (others=>'1');
+	signal cntCE: std_logic;
 	
 	signal rValid, rReady: std_logic;
 	signal rData: std_logic_vector(width-1 downto 0);
@@ -42,10 +43,13 @@ begin
 	sr1 <= sr1(sr1'left-1 downto 0) & din_tdata1 when din_tstrobe1='1' and rising_edge(aclk);
 
 	-- read side
-	cnt <= cntNext when rising_edge(aclk);
-	cntNext <= cnt+1 when din_tstrobe1='1' and (rReady='0' or cnt=cntEmpty) else
-				cnt-1 when cnt /= cntEmpty and din_tstrobe1='0' and rReady='1' else
-				cnt;
+	cnt <= cntNext when cntCE='1' and rising_edge(aclk);
+	cntNext <= cnt+1 when din_tstrobe1='1' else
+				cnt-1;
+	cntCE <= '1' when din_tstrobe1='1' and (rReady='0' or cnt=cntEmpty) else
+			'1' when cnt /= cntEmpty and din_tstrobe1='0' and rReady='1' else
+			'0';
+
 	rValid <= '1' when cnt /= cntEmpty else
 				'0';
 	rData <= sr1(to_integer(cnt));
