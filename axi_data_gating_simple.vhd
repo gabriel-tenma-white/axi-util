@@ -42,16 +42,20 @@ end entity;
 architecture a of axiDataGatingSimple is
     constant wordBytes: integer := wordWidth/8;
 	constant wordSizeOrder: integer := integer(ceil(log2(real(wordBytes))));
+	constant incrWords: integer := incrBytes/wordBytes;
+	constant cntWidth: integer := addrWidth - wordSizeOrder;
 
 	signal delta: integer;
 	signal deltaNonzero: std_logic;
-	signal allowedBytes, allowedBytesNext, aB1, aB2: unsigned(addrWidth-1 downto 0) := (others=>'0');
+	signal allowedWords, allowedWordsNext: unsigned(cntWidth-1 downto 0) := (others=>'0');
+	signal empty, empty1: std_logic;
+	signal almostEmpty, almostEmpty1: std_logic;
 
 	signal wantIssueData, wantIssueDataNext,willIssueData, insertMode, insertModeNext: std_logic;
 	signal wantIssueData_history: std_logic_vector(4 downto 0);
 	signal reset2, idle0, newFrame1: std_logic;
 
-	signal incrB, decrB, incrI: boolean;
+	signal incrB, decrB, incrI, decrB1: boolean;
 begin
 	reset2 <= reset when rising_edge(aclk);
 	newFrame1 <= newFrame when rising_edge(aclk);
@@ -98,19 +102,28 @@ begin
 
 
 	delta <=
-		incrBytes					when incrI and (incrB = decrB) else
-		incrBytes + wordBytes		when incrI and incrB else
-		incrBytes - wordBytes		when incrI else
-		wordBytes					when incrB else
-		-wordBytes;					--when decrB;
+		incrWords			when incrI and (incrB = decrB) else
+		incrWords + 1		when incrI and incrB else
+		incrWords - 1		when incrI else
+		1					when incrB else
+		-1;					--when decrB;
 	deltaNonzero <=
 		'0' when incrB and decrB and (not incrI) else
 		'0' when (not incrB) and (not decrB) and (not incrI) else
 		'1';
 
-	allowedBytes <= allowedBytes+unsigned(to_signed(delta, allowedBytes'length))
+	allowedWords <= allowedWords+unsigned(to_signed(delta, allowedWords'length))
 						when deltaNonzero='1' and rising_edge(aclk);
 
+	empty <= '1' when allowedWords = 0 else '0';
+	almostEmpty <= '1' when allowedWords <= 1 else '0';
+	empty1 <= empty when rising_edge(aclk);
+	almostEmpty1 <= almostEmpty when rising_edge(aclk);
+	decrB1 <= decrB when rising_edge(aclk);
+
+	decrB <= true when almostEmpty1='0' else
+			true when empty1='0' and not decrB1 else
+			false;
 
 	-- counter
 	--delta <=
@@ -127,8 +140,8 @@ begin
 
 	incrI <= allowIssue='1';
 	incrB <= (wantIssueData and not willIssueData)='1' when rising_edge(aclk);
-	decrB <= allowedBytes /= 0;
-	wantIssueDataNext <= '0' when allowedBytes=0 else '1';
+	--decrB <= allowedBytes /= 0;
+	wantIssueDataNext <= '1' when decrB else '0';
 	wantIssueData <= wantIssueDataNext when rising_edge(aclk);
 
 	-- connect pipes, gated by wantIssueData
