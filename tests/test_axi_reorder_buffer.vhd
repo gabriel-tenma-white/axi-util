@@ -12,6 +12,8 @@ end test_axiReorderBuffer;
 
 architecture behaviour of test_axiReorderBuffer is
 	constant doBitReverse: boolean := true;
+	constant depthOrder: integer := 5;
+	constant depth: integer := 2**depthOrder;
 	
 	subtype data_t is std_logic_vector(15 downto 0);
 	subtype dataOut_t is std_logic_vector(15 downto 0);
@@ -21,6 +23,7 @@ architecture behaviour of test_axiReorderBuffer is
 	signal outData: dataOut_t;
 	signal outValid, outReady: std_logic := '0';
 	signal outFlags: std_logic_vector(1 downto 0);
+	signal inLast, outLast: std_logic;
 	
 	signal bitPermIn0, bitPermIn1: unsigned(4 downto 0);
 	signal bitPermCount0, bitPermCount1: unsigned(0 downto 0);
@@ -64,13 +67,18 @@ architecture behaviour of test_axiReorderBuffer is
 		end loop;
 		return dout;
 	end function;
+	function getTlast(I: integer) return std_logic is
+		constant arr: std_logic_vector(0 to 15) := "1000110101001011";
+	begin
+		return arr(I/depth);
+	end function;
 begin
 
 	inst: entity axiReorderBuffer
 		generic map(wordWidth=>16, tuserWidth=>2, depthOrder=>5, repPeriod=>2)
 		port map(inClk, '0',
-			inpValid, inReady, inData, inData(6 downto 5),
-			outValid, outReady, outData, outFlags,
+			inpValid, inReady, inData, inData(6 downto 5), inLast,
+			outValid, outReady, outData, outFlags, outLast,
 			bitPermIn0, bitPermIn1,
 			bitPermCount0, bitPermCount1,
 			bitPermOut0, bitPermOut1);
@@ -92,15 +100,21 @@ g2: if not doBitReverse generate
 		variable inpValue: integer := 0;
 		variable expectValue: integer := 0;
 		variable expectData: unsigned(15 downto 0);
+		variable expectTlast: std_logic;
 	begin
 		wait for inClkHPeriod; inClk <= '1'; wait for inClkHPeriod; inClk <= '0';
 		wait for inClkHPeriod; inClk <= '1'; wait for inClkHPeriod; inClk <= '0';
 		for I in 0 to 1000 loop
 			-- feed data in
 			inpValid <= '0';
+			inLast <= '0';
 			if (I mod inputSpeed(I)) = 0 then
 				inpValid <= '1';
 				inData <= data_t(to_unsigned(inpValue,16));
+				if (inpValue+1) mod depth = 0 then
+					inLast <= getTlast(inpValue);
+				end if;
+
 				if inReady='1' then
 					inpValue := inpValue+1;
 				end if;
@@ -113,11 +127,18 @@ g2: if not doBitReverse generate
 				if doBitReverse then
 					expectData(bitPermIn0'range) := bitReverse(expectData(bitPermIn0'range));
 				end if;
+				expectTlast := '0';
+				if expectData(bitPermIn0'range) = (bitPermIn0'range=>'1') then
+					expectTlast := getTlast(expectValue);
+				end if;
+				
 				if outValid='1' then
 					assert expectData=unsigned(outData)
 						report "time " & integer'image(I) & ", expected "
 							& integer'image(to_integer(unsigned(expectData))) & ", got "
 							& integer'image(to_integer(unsigned(outData)));
+
+					assert expectTlast = outLast;
 					expectValue := expectValue+1;
 				end if;
 			else

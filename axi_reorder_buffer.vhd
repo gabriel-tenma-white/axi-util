@@ -36,7 +36,8 @@ entity axiReorderBuffer is
 	generic(wordWidth, tuserWidth: integer;
 			depthOrder: integer;
 			repPeriod: integer;
-			addrPermDelay: integer := 0);
+			addrPermDelay: integer := 0;
+			tlastReset: boolean := true);
 	port(
 			aclk, reset: in std_logic;
 
@@ -45,12 +46,14 @@ entity axiReorderBuffer is
 			din_tready: out std_logic;
 			din_tdata: in std_logic_vector(wordWidth-1 downto 0);
 			din_tuser: in std_logic_vector(tuserWidth-1 downto 0);
+			din_tlast: in std_logic := '0';
 
 		-- axi stream output
 			dout_tvalid: out std_logic;
 			dout_tready: in std_logic;
 			dout_tdata: out std_logic_vector(wordWidth-1 downto 0);
 			dout_tuser: out std_logic_vector(tuserWidth-1 downto 0);
+			dout_tlast: out std_logic;
 
 		-- external bit permutor
 			bitPermIn0, bitPermIn1: out unsigned(depthOrder-1 downto 0);
@@ -73,23 +76,29 @@ architecture a of axiReorderBuffer is
 	attribute X_INTERFACE_INFO of din_tready: signal is "xilinx.com:interface:axis_rtl:1.0 din tready";
 	attribute X_INTERFACE_INFO of din_tdata: signal is "xilinx.com:interface:axis_rtl:1.0 din tdata";
 	attribute X_INTERFACE_INFO of din_tuser: signal is "xilinx.com:interface:axis_rtl:1.0 din tuser";
+	attribute X_INTERFACE_INFO of din_tlast: signal is "xilinx.com:interface:axis_rtl:1.0 din tlast";
 	attribute X_INTERFACE_INFO of dout_tvalid: signal is "xilinx.com:interface:axis_rtl:1.0 dout tvalid";
 	attribute X_INTERFACE_INFO of dout_tready: signal is "xilinx.com:interface:axis_rtl:1.0 dout tready";
 	attribute X_INTERFACE_INFO of dout_tdata: signal is "xilinx.com:interface:axis_rtl:1.0 dout tdata";
 	attribute X_INTERFACE_INFO of dout_tuser: signal is "xilinx.com:interface:axis_rtl:1.0 dout tuser";
+	attribute X_INTERFACE_INFO of dout_tlast: signal is "xilinx.com:interface:axis_rtl:1.0 dout tlast";
 
 
 	-- write side
 	-- counters are (depthOrder+1) bits because we need to distinguish "full" from 0.
-	signal wAddr, wAddrNext, wAddrPrev: unsigned(depthOrder downto 0) := (others=>'0');
+	signal wAddr, wAddrNext, wAddrNext1, wAddrPrev: unsigned(depthOrder downto 0) := (others=>'0');
+	signal wAddrPlus1, wAddrPlus1Next, wAddrPlus1Next1: unsigned(depthOrder downto 0) := (0=>'1', others=>'0');
+	signal wAddrPlus1MSBNext: std_logic;
 	signal wAddrUpper: unsigned(1 downto 0);
 	signal wData: std_logic_vector(wordWidth-1 downto 0);
-	signal wIncrement, wReady, wEnable, wEnable0: std_logic;
+	signal wIncrement, wIncrement1, wReady, wEnable, wEnable0: std_logic;
+	signal wFull, wAlmostFull, wFull1, wAlmostFull1: std_logic;
+
 	signal tuser1: std_logic_vector(tuserWidth-1 downto 0);
 	signal sampleFlags0, sampleFlags1, sampleFlags2: std_logic;
 	
 	-- read side
-	signal rAddr, rAddrNext, rAddrPermuted, rAddrPrev: unsigned(depthOrder downto 0)
+	signal rAddr, rAddrNext, rAddrPermuted, rAddrM1, rAddrDelayed: unsigned(depthOrder downto 0)
 			:= (depthOrder=>'1', others=>'0');
 	signal rIncrement, outCE: std_logic;
 	signal rValid, outValid: std_logic;
@@ -101,15 +110,52 @@ architecture a of axiReorderBuffer is
 	-- generation control logic
 	signal done, done1, done2, donePulse: std_logic := '0';
 	signal incrementGeneration, bitPermInverse1, doReorder1: std_logic;
+
+	-- tlast logic
+	signal inLast, inLastPrev, currFrameIsLast, outLast0: std_logic := '0';
+	signal wFrameAdvanced, rFrameAdvanced: std_logic;
 begin
 
 	-- write side
-	wReady <= '0' when wAddr=rAddrPrev else '1';
+	--wReady <= '0' when wAddr=rAddrDelayed else '1';
 	din_tready <= wReady;
 	wIncrement <= din_tvalid and wReady;
-	wAddrNext <= wAddr+1 when wIncrement='1' else
-				wAddr;
-	wAddr <= wAddrNext when rising_edge(aclk);
+
+
+	wFull <= '1' when wAddr=rAddrDelayed else '0';
+	wAlmostFull <= '1' when wAddrPlus1=rAddrDelayed else '0';
+	wFull1 <= wFull when rising_edge(aclk);
+	wAlmostFull1 <= wAlmostFull when rising_edge(aclk);
+	wIncrement1 <= wIncrement when rising_edge(aclk);
+	wReady <= '1' when wAlmostFull1='0' and wFull1='0' else
+				'1' when wFull1='0' and wIncrement1='0' else
+				'0';
+
+g0: if tlastReset generate
+		wAddrNext <= (others=>'0') when inLast='1' else
+						wAddrPlus1 when wIncrement='1' else
+						wAddr;
+		-- tlast resets the lower bits of wAddr only;
+		-- the msb of wAddr will take on its original next value (from previous wAddr+1)
+		wAddr(wAddr'left) <= wAddrPlus1(wAddr'left) when wIncrement='1' and rising_edge(aclk);
+		wAddr(wAddr'left-1 downto 0) <= wAddrNext(wAddr'left-1 downto 0) when rising_edge(aclk);
+
+		wAddrPlus1Next <= wAddrPlus1+1;
+		wAddrPlus1Next1 <= (0=>'1', others=>'0') when inLast='1' else
+						wAddrPlus1Next when wIncrement='1' else
+						wAddrPlus1;
+		wAddrPlus1MSBNext <= wAddrPlus1Next(wAddr'left) when wIncrement='1' and din_tlast='0' else
+							wAddrPlus1(wAddr'left);
+		wAddrPlus1(wAddr'left) <= wAddrPlus1MSBNext when rising_edge(aclk);
+		wAddrPlus1(wAddr'left-1 downto 0) <= wAddrPlus1Next1(wAddr'left-1 downto 0) when rising_edge(aclk);
+	end generate;
+g1: if not tlastReset generate
+		wAddrPlus1 <= wAddrPlus1+1 when wIncrement='1' and rising_edge(aclk);
+		wAddr <= wAddrPlus1 when wIncrement='1' and rising_edge(aclk);
+	end generate;
+	
+
+
 	wAddrPrev <= wAddr when rising_edge(aclk);
 	bitPermCE0 <= '1';
 	bitPermIn0 <= wAddr(depthOrder-1 downto 0);
@@ -135,9 +181,10 @@ begin
 	rAddrNext <= rAddr+1 when rIncrement='1' else
 				rAddr;
 	rAddr <= rAddrNext when rising_edge(aclk);
-	sr_rAddrPrev: entity sr_unsigned
+	rAddrM1 <= rAddr when outCE='1' and rising_edge(aclk);
+	sr_rAddrDelayed: entity sr_unsigned
 		generic map(bits=>rAddr'length, len=>addrPermDelay+1)
-		port map(clk=>aclk, din=>rAddr, dout=>rAddrPrev, ce=>outCE);
+		port map(clk=>aclk, din=>rAddr, dout=>rAddrDelayed, ce=>outCE);
 
 	bitPermCE1 <= outCE;
 	bitPermIn1 <= rAddr(depthOrder-1 downto 0);
@@ -175,5 +222,17 @@ begin
 	donePulse <= done xor done1 when rising_edge(aclk);
 
 	incrementGeneration <= donePulse;
+
+	-- tlast handling
+	wFrameAdvanced <= '1' when wAddr(wAddr'left) /= wAddrPrev(wAddr'left) else '0';
+	rFrameAdvanced <= '1' when rAddr(rAddr'left) /= rAddrM1(rAddr'left) else '0';
+
+	inLast <= din_tlast and din_tvalid and wReady;
+	inLastPrev <= inLast when rising_edge(aclk);
+	currFrameIsLast <= inLastPrev when wFrameAdvanced='1' and rising_edge(aclk);
+	outLast0 <= currFrameIsLast and rFrameAdvanced;
+	sr_outLast: entity sr_bit
+		generic map(len=>addrPermDelay+1)
+		port map(clk=>aclk, din=>outLast0, dout=>dout_tlast, ce=>outCE);
 end a;
 
