@@ -55,7 +55,7 @@ architecture behaviour of test_axiDataGating is
 		end if;
 	end function;
 begin
-	inst: entity axiDataGatingSimple2
+	inst: entity axiDataGatingSimple
 		generic map(addrWidth=>32,
 				wordWidth=>16,
 				incrBytes=>2)
