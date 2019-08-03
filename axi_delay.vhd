@@ -18,9 +18,9 @@ entity axiDelay is
 			outData: out std_logic_vector(width-1 downto 0));
 end entity;
 architecture a of axiDelay is
-	type srValid_t is array(validDelay downto 0) of std_logic;
+	subtype srValid_t is std_logic_vector(validDelay downto 0);
 	type srData_t is array(dataDelay downto 0) of std_logic_vector(width-1 downto 0);
-	signal srValid: srValid_t;
+	signal srValid: srValid_t := (others=>'0');
 	signal srData: srData_t;
 	
 	signal srEnable: std_logic;
