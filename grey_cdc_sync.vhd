@@ -15,7 +15,7 @@ entity greycdcsync is
 			dataout: out unsigned(width-1 downto 0));
 end entity;
 architecture a of greyCDCSync is
-	signal datain1,dataout0: unsigned(width-1 downto 0) := (others=>'0');
+	signal datain1,dataout0, dataout1: unsigned(width-1 downto 0) := (others=>'0');
 	signal grey0,greyCDCSyncAsyncSource,greyCDCSyncAsyncTarget: std_logic_vector(width-1 downto 0) := (others=>'0');
 begin
 g1: if inputRegistered generate
@@ -36,5 +36,6 @@ g2: if not inputRegistered generate
 	-- grey decode & sample
 	greyDec: entity greycodeDec generic map(width=>width)
 		port map(greyCDCSyncAsyncTarget,dataout0);
-	dataout <= dataout0 when rising_edge(dstclk);
+	dataout1 <= dataout0 when rising_edge(dstclk);
+	dataout <= dataout1;
 end a;
