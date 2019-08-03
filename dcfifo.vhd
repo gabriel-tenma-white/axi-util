@@ -67,15 +67,15 @@ architecture a of dcfifo is
 	-- full condition: rpos = wpos + 1
 	
 	--read side
-	signal rdEmpty, rdAlmostEmpty, rdEmpty1, rdAlmostEmpty1: std_logic;
-	signal rdPossible: std_logic; -- whether we have data to read
-	signal rdWillPerform, rdWillPerform1: std_logic; -- if true, we will actually do a read
-	signal rdQueueReady: std_logic; -- whether there is space in output register
+	signal rdEmpty, rdAlmostEmpty, rdEmpty1, rdAlmostEmpty1: std_logic := '1';
+	signal rdPossible: std_logic := '0'; -- whether we have data to read
+	signal rdWillPerform, rdWillPerform1: std_logic := '0'; -- if true, we will actually do a read
+	signal rdQueueReady: std_logic := '0'; -- whether there is space in output register
 	
 	--write side
-	signal wrFull, wrAlmostFull, wrFull1, wrAlmostFull1: std_logic;
-	signal wrPossible: std_logic; -- whether we have space to write
-	signal wrWillPerform, wrWillPerform1: std_logic; -- if true, we will actually do a write
+	signal wrFull, wrAlmostFull, wrFull1, wrAlmostFull1: std_logic := '0';
+	signal wrPossible: std_logic := '0'; -- whether we have space to write
+	signal wrWillPerform, wrWillPerform1: std_logic := '0'; -- if true, we will actually do a write
 begin
 	--ram
 	ram: entity dcram generic map(width=>width, depthOrder=>depthOrder)
