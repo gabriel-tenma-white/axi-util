@@ -34,11 +34,11 @@ entity axiMipmap_arbiter is
 	port(
 			aclk, reset: in std_logic;
 			in_tdata: in minMaxArray(channels*streams-1 downto 0);
-			in_tvalid: in std_logic_vector(streams-1 downto 0);
+			in_tvalid, in_tlast: in std_logic_vector(streams-1 downto 0);
 			in_tready: out std_logic_vector(streams-1 downto 0);
 			
 			out_tdata: out minMaxArray(channels-1 downto 0);
-			out_tstrobe: out std_logic;
+			out_tstrobe, out_tlast: out std_logic;
 			out_tready: in std_logic
 		);
 end entity;
@@ -50,7 +50,7 @@ architecture a of axiMipmap_arbiter is
 	type muxDataIn_t is array(streams-1 downto 0) of minMaxArray(channels-1 downto 0);
 	signal muxDataIn: muxDataIn_t;
 	signal muxData: minMaxArray(channels-1 downto 0);
-	signal muxValid, muxStrobe: std_logic;
+	signal muxValid, muxStrobe, muxLast: std_logic;
 	
 	-- state machine
 	type state_t is (idle, running);
@@ -87,6 +87,7 @@ g1: for I in 0 to streams-1 generate
 		--muxData(I) <= in_tdata(to_integer(muxSel)*channels + I);
 	end generate;
 	muxData <= muxDataIn(to_integer(muxSel));
+	muxLast <= '1' when in_tlast(in_tlast'left)='1' and muxSel=in_tlast'left else '0';
 
 	-- decoder
 g2: for I in 0 to streams-1 generate
@@ -94,8 +95,9 @@ g2: for I in 0 to streams-1 generate
 	end generate;
 
 	-- output
-	out_tdata <= muxData when rising_edge(aclk);
+	out_tdata <= muxData when muxStrobe='1' and rising_edge(aclk);
 	out_tstrobe <= muxStrobe when rising_edge(aclk);
+	out_tlast <= muxLast when muxStrobe='1' and rising_edge(aclk);
 
 	-- flow control
 	out_tready1 <= out_tready when rising_edge(aclk);

@@ -38,10 +38,10 @@ entity axiMipmap_minMax is
 	port(
 			aclk, reset: in std_logic;
 			in_tdata: in minMaxArray(channels-1 downto 0);
-			in_tstrobe: in std_logic;
+			in_tstrobe, in_tlast: in std_logic;
 			
 			out_tdata: out minMaxArray(channels-1 downto 0);
-			out_tstrobe: out std_logic
+			out_tstrobe, out_tlast: out std_logic
 		);
 end entity;
 architecture a of axiMipmap_minMax is
@@ -54,7 +54,7 @@ begin
 	reset1 <= reset when rising_edge(aclk);
 
 	-- state machine
-	cntNext <= (others=>'0') when reset1='1' else
+	cntNext <= (others=>'0') when reset1='1' or (in_tstrobe='1' and in_tlast='1') else
 	           cnt + 1 when in_tstrobe='1' else
 	           cnt;
 	cnt <= cntNext when rising_edge(aclk);
@@ -75,7 +75,10 @@ g1: for I in 0 to channels-1 generate
 
 	out_tdata <= bounds;
 
-	ostrobeNext <= '1' when cnt=(cnt'range=>'1') and in_tstrobe='1' else '0';
+	ostrobeNext <= '1' when cnt=(cnt'range=>'1') and in_tstrobe='1' else
+					'1' when in_tlast='1' and in_tstrobe='1' else
+					'0';
 	ostrobe <= ostrobeNext when rising_edge(aclk);
 	out_tstrobe <= ostrobe;
+	out_tlast <= in_tstrobe and in_tlast when rising_edge(aclk);
 end a;
