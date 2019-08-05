@@ -42,7 +42,7 @@ entity axiPipeWriter is
 			mm_bready: out std_logic;
 		
 		-- irq out, synchronous to aclk, one clock cycle pulse width
-			irq: out std_logic;
+			irq, bufferDone: out std_logic;
 
 		-- streaming interface, input (write data to memory);
 		-- if a word is transferred with tlast=1, the current buffer will be aborted.
@@ -208,14 +208,18 @@ g2: if not userAddrPerm generate
 	bvalid1 <= mm_bvalid when rising_edge(aclk);
 
 g3: if useSimpleDataCount generate
+		signal shouldInterrupt: std_logic;
+	begin
 		prevBuffer <= indicator_buffer when frameDone='1' and rising_edge(aclk);
 		prevBufferBytes <= currFrameBytes when frameDone='1' and rising_edge(aclk);
+		shouldInterrupt <= prevBuffer.shouldInterrupt;
 		dcnt: entity axiPipeDataCountSimple
 			generic map(addrIncr=>addrIncr)
 			port map(aclk=>aclk,
 					curBytes=>prevBufferBytes,
 					bvalid=>bvalid1,
-					irqOut=>irq);
+					irqOut=>bufComplete_strobe);
+		irq <= bufComplete_strobe and shouldInterrupt when rising_edge(aclk);
 	end generate;
 g4: if not useSimpleDataCount generate
 		-- when the current buffer is done push the bufferInfo and number of bytes issued
@@ -254,5 +258,8 @@ g4: if not useSimpleDataCount generate
 		--streamIn_flags <= currBuffer.flags;
 		irq <= bufComplete_strobe and bufComplete.shouldInterrupt when rising_edge(aclk);
 	end generate;
+
+	bufferDone <= bufComplete_strobe;
+	
 end architecture;
 

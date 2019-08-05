@@ -18,9 +18,9 @@ use work.axiPipeAddrInterleaver;
 
 -- register map (32 bit words)
 -- 0		total number of bytes written to memory
--- 1		current writing address
--- 2		total number of bytes read from memory
--- 3		current reading address
+-- 1		total number of write buffers completed
+-- 2		total number of bytes read from memory (not yet implemented)
+-- 3		total number of read buffers completed (not yet implemented)
 -- 4		write buffers fifo (write to this address to enqueue;
 --				reads return number of fifo entries free)
 -- 5		read buffers fifo
@@ -135,8 +135,9 @@ architecture a of axiPipeRW is
 	-- config registers
 	signal regdata,regdataRead: regdata_t(7 downto 0);
 	signal ctrl_awready0, ctrl_wready0: std_logic;
-	signal totalWritten, totalWritten_ctrlClk, totalRead: unsigned(memAddrWidth-1 downto 0) := (others=>'0');
-	
+	signal bytesWritten, bytesWritten_ctrlClk, totalRead: unsigned(memAddrWidth-1 downto 0) := (others=>'0');
+	signal bufsWritten, bufsWritten_ctrlClk: unsigned(15 downto 0) := (others=>'0');
+
 	-- control feed pipes
 	signal readBuffersFeed_data0, writeBuffersFeed_data0: std_logic_vector(memAddrWidth-1 downto 0);
 	signal readBuffersFeed_data, writeBuffersFeed_data: bufferInfo;
@@ -144,22 +145,15 @@ architecture a of axiPipeRW is
 	signal readBuffersFeed_ready,writeBuffersFeed_ready: std_logic;
 	signal wFIFOwrroom, rFIFOwrroom: unsigned(31 downto 0);
 	signal wFIFOwrroom_ctrlClk, rFIFOwrroom_ctrlClk: unsigned(31 downto 0);
-	
-	-- memory write address generator
-	signal mm_awaddr0: std_logic_vector(memAddrWidth-1 downto 0);
-	signal mm_awaddr_ctrlClk: unsigned(memAddrWidth-1 downto 0);
-	signal wBytesIssued,totalIssued: unsigned(memAddrWidth-1 downto 0);
-	
-	signal wBurstPhase, wBurstPhaseNext: unsigned(burstOrder-1 downto 0);
-	
-	signal mm_wvalid0: std_logic;
+
 	
 	-- address permutation
 	signal ap1_din, ap2_din, ap1_dout, ap2_dout: memAddr_t;
 	signal ap1_bufferInfo, ap2_bufferInfo: bufferInfo;
 
 	-- irq
-	signal readerIRQ, writerIRQ: std_logic;
+	signal readerIRQ, writerIRQ, wBufferDone, irq0: std_logic;
+	signal irqCounter, irqCounterNext: unsigned(5 downto 0) := (others=>'0');
 begin
 	--coreClk <= aclk;
 	
@@ -175,13 +169,13 @@ begin
 			ctrl_awready, ctrl_wdata, ctrl_wvalid, ctrl_wready,
 			ctrl_bvalid, ctrl_bready, ctrl_bresp, regdata, regdataRead);
 	
-	cdc1: entity greyCDCSync generic map(width=>32)
-		port map(mm_aclk, ctrl_aclk, unsigned(mm_awaddr0), mm_awaddr_ctrlClk);
+	cdc1: entity greyCDCSync generic map(width=>16)
+		port map(mm_aclk, ctrl_aclk, bufsWritten, bufsWritten_ctrlClk);
 	cdc3: entity greyCDCSync generic map(width=>32)
-		port map(mm_aclk, ctrl_aclk, totalWritten, totalWritten_ctrlClk);
+		port map(mm_aclk, ctrl_aclk, bytesWritten, bytesWritten_ctrlClk);
 	
-	regdataread(0) <= std_logic_vector(totalWritten_ctrlClk);
-	regdataRead(1) <= std_logic_vector(mm_awaddr_ctrlClk);
+	regdataread(0) <= std_logic_vector(bytesWritten_ctrlClk);
+	regdataRead(1) <= std_logic_vector(resize(bufsWritten_ctrlClk, 32));
 	regdataRead(4) <= std_logic_vector(wFIFOwrroom_ctrlClk);
 	regdataRead(5) <= std_logic_vector(rFIFOwrroom_ctrlClk);
 	
@@ -244,16 +238,23 @@ begin
 			addrPerm_bufferInfo=>ap2_bufferInfo,
 			addrPerm_dout=>ap2_dout,
 			
-			irq=>writerIRQ,
+			irq=>writerIRQ, bufferDone=>wBufferDone,
 
 			streamIn_tvalid=>inp_tvalid,
 			streamIn_tready=>inp_tready,
 			streamIn_tdata=>inp_tdata,
 			streamIn_tlast=>inp_tlast);
-	
-	irqOut <= writerIRQ;
-	
-	totalWritten <= totalWritten+addrIncr when mm_bvalid='1' and rising_edge(mm_aclk);
+
+	irqCounterNext <= (others=>'1') when writerIRQ='1' else
+						irqCounter-1 when irqCounter /= 0 else
+						irqCounter;
+	irqCounter <= irqCounterNext when rising_edge(mm_aclk);
+	irq0 <= '1' when irqCounter /= 0 else '0';
+	irqOut <= irq0 when rising_edge(mm_aclk);
+
+
+	bytesWritten <= bytesWritten+addrIncr when mm_bvalid='1' and rising_edge(mm_aclk);
+	bufsWritten <= bufsWritten+1 when wBufferDone='1' and rising_edge(mm_aclk);
 
 	readAddrPermIn <= std_logic_vector(ap1_din);
 	readAddrPermFlags <= ap1_bufferInfo.flags;
