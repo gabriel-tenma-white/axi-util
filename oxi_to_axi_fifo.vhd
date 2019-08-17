@@ -40,15 +40,21 @@ architecture a of oxiToAxiFIFO is
 
 	type ram1_t is array(depth-1 downto 0) of std_logic_vector(width-1 downto 0);
 	signal ram1: ram1_t;
+	attribute ram_style : string;
+	attribute ram_style of ram1 : signal is "distributed";
 begin
 	-- register inputs
 	din_tstrobe1 <= din_tstrobe when rising_edge(aclk);
 	din_tdata1 <= din_tdata when rising_edge(aclk);
 
 	-- write side
-	wAddrNext <= wAddr+1 when din_tstrobe1='1' else wAddr;
-	wAddr <= wAddrNext when rising_edge(aclk);
-	ram1(to_integer(wAddr)) <= din_tdata1;
+	wAddr <= wAddr+1 when din_tstrobe='1' and rising_edge(aclk);
+	process(aclk)
+	begin
+		if(rising_edge(aclk)) then
+			ram1(to_integer(wAddr)) <= din_tdata;
+		end if;
+	end process;
 
 	-- read side
 	rValid <= '0' when rAddr=wAddr else '1';
