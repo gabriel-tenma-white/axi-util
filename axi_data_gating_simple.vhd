@@ -48,10 +48,10 @@ architecture a of axiDataGatingSimple is
 	signal delta: integer;
 	signal deltaNonzero: std_logic;
 	signal allowedWords, allowedWordsNext: unsigned(cntWidth-1 downto 0) := (others=>'0');
-	signal empty, empty1: std_logic;
-	signal almostEmpty, almostEmpty1: std_logic;
+	signal empty, empty1: std_logic := '1';
+	signal almostEmpty, almostEmpty1: std_logic := '1';
 
-	signal wantIssueData, wantIssueDataNext,willIssueData, insertMode, insertModeNext: std_logic;
+	signal wantIssueData, wantIssueDataNext,willIssueData, insertMode, insertModeNext: std_logic := '0';
 	signal wantIssueData_history: std_logic_vector(4 downto 0);
 	signal reset2, idle0, newFrame1: std_logic;
 
