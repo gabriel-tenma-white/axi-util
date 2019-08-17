@@ -12,7 +12,7 @@ entity axiMMFIFO is
 	generic(memAddrWidth: integer := 8;
 			wordWidth: integer := 32;
 			myAddress: integer := 123; -- in words, not bytes
-			depthOrder: integer := 4);
+			depthOrder: integer := 5);
 	port(
 		--axi memory mapped slave, write side
 			aclk: in std_logic;
