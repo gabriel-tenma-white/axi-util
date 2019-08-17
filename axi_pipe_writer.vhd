@@ -216,7 +216,8 @@ g3: if useSimpleDataCount generate
 		dcnt: entity axiPipeDataCountSimple
 			generic map(addrIncr=>addrIncr)
 			port map(aclk=>aclk,
-					curBytes=>prevBufferBytes,
+					curBytes=>currFrameBytes,
+					curBytesStrobe=>frameDone,
 					bvalid=>bvalid1,
 					irqOut=>bufComplete_strobe);
 		irq <= bufComplete_strobe and shouldInterrupt when rising_edge(aclk);

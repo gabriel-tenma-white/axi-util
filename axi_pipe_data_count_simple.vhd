@@ -15,6 +15,7 @@ entity axipipedatacountsimple is
 
 		-- buffers feed in
 			curBytes: in bufLengthBytes_t;
+			curBytesStrobe: in std_logic;
 
 		-- data indicator
 			bvalid: in std_logic;
@@ -26,27 +27,20 @@ architecture a of axiPipeDataCountSimple is
 	constant addrIncrOrder: integer := integer(ceil(log2(real(addrIncr))));
 
 	signal curBytesTrunc: bufLengthBytes_t;
-	signal accum, accumNext, resetVal: bufLengthBytes_t;
-	signal compEqual, irq0: std_logic;
-
-	-- state 🅱achine
-	type state_t is (FETCHING, FETCHED, RUNNING, DONE);
-	signal state, stateNext: state_t := FETCHING;
+	signal accum, accumNext, accum1, accum1Next: bufLengthBytes_t := (others=>'0');
+	signal eq0, eq1, eq2: std_logic := '1';
 begin
 	-- round down to the nearest multiple of addrIncr
 	curBytesTrunc <= curBytes(curBytes'left downto addrIncrOrder) &
 					(addrIncrOrder-1 downto 0=>'0');
 
 	-- accumulator
-	resetVal <= to_unsigned(0, bufLengthBytesWidth) when bvalid='0' else
-				to_unsigned(addrIncr, bufLengthBytesWidth);
-	compEqual <= '1' when accum=curBytesTrunc else '0';
+	accum <= accum+addrIncr when bvalid='1' and rising_edge(aclk);
+	accum1 <= accum1+curBytes when curBytesStrobe='1' and rising_edge(aclk);
 
-	accumNext <= resetVal		when compEqual='1' else
-				accum+addrIncr	when bvalid='1' else
-				accum;
-	accum <= accumNext when rising_edge(aclk);
+	eq0 <= '1' when accum=accum1 else '0';
+	eq1 <= eq0 when rising_edge(aclk);
+	eq2 <= eq1 when rising_edge(aclk);
 
-	irq0 <= compEqual when rising_edge(aclk);
-	irqOut <= irq0 when rising_edge(aclk);
+	irqOut <= eq1 and not eq2 when rising_edge(aclk);
 end a;
