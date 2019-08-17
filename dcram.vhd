@@ -33,9 +33,12 @@ architecture a of dcram is
 	
 	signal tmpdata: std_logic_vector(width-1 downto 0);
 
-	function ram_style_str(t: integer) return string is
+	function ram_style_str(t,depthOrder: integer) return string is
 	begin
 		if t=0 then
+			if depthOrder <= 5 then
+				return "distributed";
+			end if;
 			return "";
 		elsif t=1 then
 			return "block";
@@ -46,7 +49,7 @@ architecture a of dcram is
 	--type ramStr_t is array(0 to 2) of string(10 downto 0);
 	--constant ramTypeStr : ramStr_t := ("           ", "block      ", "distributed");
 	attribute ram_style : string;
-	attribute ram_style of ram1 : signal is ram_style_str(ramType);
+	attribute ram_style of ram1 : signal is ram_style_str(ramType, depthOrder);
 begin
 	--inferred ram
 	process(rdclk)
