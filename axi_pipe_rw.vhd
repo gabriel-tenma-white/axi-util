@@ -36,6 +36,7 @@ entity axiPipeRW is
 			wordWidth: integer := 64;
 			-- when in interleaved address mode, this sets the row size
 			interleaveRowBits: integer := 9;
+			interleaveColBits: integer := 9;
 			customReadAddrPermutation: boolean := false;
 			customWriteAddrPermutation: boolean := false);
 	port(
@@ -260,7 +261,9 @@ begin
 	readAddrPermFlags <= ap1_bufferInfo.flags;
 g1: if not customReadAddrPermutation generate
 		interleaver1: entity axiPipeAddrInterleaver
-			generic map(addrBits=>memAddrWidth, rowBits=>interleaveRowBits,
+			generic map(addrBits=>memAddrWidth,
+				rowBits=>interleaveRowBits,
+				colBits=>interleaveColBits,
 				burstBits=>(burstOrder+wordSizeOrder))
 			port map(addrIn=>ap1_din, addrOut=>ap1_dout,
 				doTranspose=>ap1_bufferInfo.flags(0),
@@ -274,7 +277,9 @@ g2: if customReadAddrPermutation generate
 	writeAddrPermFlags <= ap2_bufferInfo.flags;
 g3: if not customWriteAddrPermutation generate
 		interleaver2: entity axiPipeAddrInterleaver
-			generic map(addrBits=>memAddrWidth, rowBits=>interleaveRowBits,
+			generic map(addrBits=>memAddrWidth,
+				rowBits=>interleaveRowBits,
+				colBits=>interleaveColBits,
 				burstBits=>(burstOrder+wordSizeOrder))
 			port map(addrIn=>ap2_din, addrOut=>ap2_dout,
 				doTranspose=>ap2_bufferInfo.flags(0),
