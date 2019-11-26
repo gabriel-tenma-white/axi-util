@@ -189,7 +189,8 @@ namespace OwOComm {
 	bool AXIPipe::waitRead(uint32_t marker, int timeoutMs) {
 		while(!readCompleted(marker)) {
 			if(waitForIrq(irqfd, timeoutMs) <= 0) {
-				fprintf(stderr, "timeout waiting for irq; current read marker %u, read acceptance %d\n", regs[AXIPIPE_REG_BUFSREAD], read🅱ufferAcceptance());
+				fprintf(stderr, "timeout waiting for irq; current read marker %u, read bytes %u, read acceptance %d\n",
+					regs[AXIPIPE_REG_BUFSREAD], regs[AXIPIPE_REG_BYTESREAD], read🅱ufferAcceptance());
 				return false;
 			}
 		}
@@ -200,10 +201,10 @@ namespace OwOComm {
 	// when a write marker is reached, call cb
 	void AXIPipe::waitWriteAsync(uint32_t marker, const function<void()>& cb) {
 		priority_queue_t* qW = (priority_queue_t*) this->cbQueueW;
-		if(writeCompleted(marker)) {
+		/*if(writeCompleted(marker)) {
 			cb();
 			return;
-		}
+		}*/
 		qW->push(CBInfo {marker, cb});
 	}
 	

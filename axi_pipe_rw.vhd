@@ -136,8 +136,10 @@ architecture a of axiPipeRW is
 	-- config registers
 	signal regdata,regdataRead: regdata_t(7 downto 0);
 	signal ctrl_awready0, ctrl_wready0: std_logic;
-	signal bytesWritten, bytesWritten_ctrlClk, totalRead: unsigned(memAddrWidth-1 downto 0) := (others=>'0');
-	signal bufsWritten, bufsWritten_ctrlClk: unsigned(15 downto 0) := (others=>'0');
+	signal bytesWritten, bytesWritten_ctrlClk, bytesRead, bytesRead_ctrlClk, totalRead:
+				unsigned(memAddrWidth-1 downto 0) := (others=>'0');
+	signal bufsWritten, bufsWritten_ctrlClk, bufsRead, bufsRead_ctrlClk:
+				unsigned(15 downto 0) := (others=>'0');
 
 	-- control feed pipes
 	signal readBuffersFeed_data0, writeBuffersFeed_data0: std_logic_vector(memAddrWidth-1 downto 0);
@@ -152,8 +154,10 @@ architecture a of axiPipeRW is
 	signal ap1_din, ap2_din, ap1_dout, ap2_dout: memAddr_t;
 	signal ap1_bufferInfo, ap2_bufferInfo: bufferInfo;
 
+	signal outp_tvalid0: std_logic;
+
 	-- irq
-	signal readerIRQ, writerIRQ, wBufferDone, irq0: std_logic;
+	signal readerIRQ, writerIRQ, wBufferDone, rBufferDone, irq0: std_logic;
 	signal irqCounter, irqCounterNext: unsigned(5 downto 0) := (others=>'0');
 begin
 	--coreClk <= aclk;
@@ -172,11 +176,17 @@ begin
 	
 	cdc1: entity greyCDCSync generic map(width=>16)
 		port map(mm_aclk, ctrl_aclk, bufsWritten, bufsWritten_ctrlClk);
+	cdc2: entity greyCDCSync generic map(width=>16)
+		port map(mm_aclk, ctrl_aclk, bufsRead, bufsRead_ctrlClk);
 	cdc3: entity greyCDCSync generic map(width=>32)
 		port map(mm_aclk, ctrl_aclk, bytesWritten, bytesWritten_ctrlClk);
+	cdc4: entity greyCDCSync generic map(width=>32)
+		port map(mm_aclk, ctrl_aclk, bytesRead, bytesRead_ctrlClk);
 	
 	regdataread(0) <= std_logic_vector(bytesWritten_ctrlClk);
 	regdataRead(1) <= std_logic_vector(resize(bufsWritten_ctrlClk, 32));
+	regdataread(2) <= std_logic_vector(bytesRead_ctrlClk);
+	regdataRead(3) <= std_logic_vector(resize(bufsRead_ctrlClk, 32));
 	regdataRead(4) <= std_logic_vector(wFIFOwrroom_ctrlClk);
 	regdataRead(5) <= std_logic_vector(rFIFOwrroom_ctrlClk);
 	
@@ -216,13 +226,14 @@ begin
 			addrPerm_bufferInfo=>ap1_bufferInfo,
 			addrPerm_dout=>ap1_dout,
 			
-			irq=>readerIRQ,
+			irq=>readerIRQ, bufferDone=>rBufferDone,
 			
 			streamOut_flags=>outp_tuser,
-			streamOut_tvalid=>outp_tvalid,
+			streamOut_tvalid=>outp_tvalid0,
 			streamOut_tready=>outp_tready,
 			streamOut_tdata=>outp_tdata,
 			streamOut_tlast=>outp_tlast);
+	outp_tvalid <= outp_tvalid0;
 	
 	writer: entity axiPipeWriter
 		generic map(burstLength=>burstLength, wordWidth=>wordWidth, userAddrPerm=>true)
@@ -246,7 +257,7 @@ begin
 			streamIn_tdata=>inp_tdata,
 			streamIn_tlast=>inp_tlast);
 
-	irqCounterNext <= (others=>'1') when writerIRQ='1' else
+	irqCounterNext <= (others=>'1') when writerIRQ='1' or readerIRQ='1' else
 						irqCounter-1 when irqCounter /= 0 else
 						irqCounter;
 	irqCounter <= irqCounterNext when rising_edge(mm_aclk);
@@ -256,6 +267,9 @@ begin
 
 	bytesWritten <= bytesWritten+addrIncr when mm_bvalid='1' and rising_edge(mm_aclk);
 	bufsWritten <= bufsWritten+1 when wBufferDone='1' and rising_edge(mm_aclk);
+
+	bytesRead <= bytesRead+addrIncr when outp_tready='1' and outp_tvalid0='1' and rising_edge(mm_aclk);
+	bufsRead <= bufsRead+1 when rBufferDone='1' and rising_edge(mm_aclk);
 
 	readAddrPermIn <= std_logic_vector(ap1_din);
 	readAddrPermFlags <= ap1_bufferInfo.flags;

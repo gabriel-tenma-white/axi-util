@@ -42,6 +42,8 @@ entity axiPipeWriter is
 			mm_bready: out std_logic;
 		
 		-- irq out, synchronous to aclk, one clock cycle pulse width
+		-- 'irq' will pulse at the end of each completed buffer but only if the
+		-- buffer has shouldInterrupt set. 'bufferDone' will pulse regardless of shouldInterrupt.
 			irq, bufferDone: out std_logic;
 
 		-- streaming interface, input (write data to memory);

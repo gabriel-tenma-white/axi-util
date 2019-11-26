@@ -34,8 +34,10 @@ entity axiPipeReader is
 			mm_rready: out std_logic;
 			mm_rdata: in std_logic_vector(wordWidth-1 downto 0);
 		
-		-- irq out, synchronous to aclk, one clock cycle pulse width
-			irq: out std_logic;
+		-- irq out, synchronous to aclk, one clock cycle pulse width.
+		-- 'irq' will pulse at the end of each completed buffer but only if the
+		-- buffer has shouldInterrupt set. 'bufferDone' will pulse regardless of shouldInterrupt.
+			irq, bufferDone: out std_logic;
 
 		-- streaming interface, output (read data from memory)
 		-- flags is the flags from the buffer associated with the current output word.
@@ -76,7 +78,7 @@ architecture a of axiPipeReader is
 	signal dcnt_bf_tready, dcnt_bf_tvalid: std_logic;
 	signal dout_tvalid_and_tready: std_logic;
 	signal dcnt_currBuffer: bufferInfo;
-	signal dout_tlast, tlast1, irq0: std_logic;
+	signal dout_tlast, tlast1, bufferDone0, irq0: std_logic;
 begin
 	-- #####################################
 	-- address generator
@@ -149,7 +151,9 @@ g2: if not userAddrPerm generate
 	streamOut_flags <= dcnt_currBuffer.flags;
 
 	tlast1 <= dout_tlast when rising_edge(aclk);
+	bufferDone0 <= '1' when dout_tlast='1' and tlast1='0' else '0';
 	irq0 <= '1' when dout_tlast='1' and tlast1='0' and dcnt_currBuffer.shouldInterrupt='1' else '0';
+	bufferDone <= bufferDone0 when rising_edge(aclk);
 	irq <= irq0 when rising_edge(aclk);
 end architecture;
 
