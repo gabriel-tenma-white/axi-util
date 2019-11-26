@@ -3,7 +3,7 @@ library work;
 use ieee.numeric_std.all;
 use ieee.std_logic_1164.all;
 -- slow cross clock domain sync; really just a chain of flip-flops
-entity cdcSync is
+entity cdcsync is
 	generic(width: integer := 8;
 				stages: integer := 3);
 	port(dstclk: in std_logic;

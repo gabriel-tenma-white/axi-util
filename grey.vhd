@@ -3,7 +3,7 @@ library work;
 use ieee.numeric_std.all;
 use ieee.std_logic_1164.all;
 -- combinational grey code encoder/decoder
-entity greycodeEnc is
+entity greycodeenc is
 	generic(width: integer := 8);
 	port(datain: in unsigned(width-1 downto 0);
 			dataout: out std_logic_vector(width-1 downto 0));
@@ -21,7 +21,7 @@ library work;
 use ieee.numeric_std.all;
 use ieee.std_logic_1164.all;
 -- combinational grey code encoder/decoder
-entity greycodeDec is
+entity greycodedec is
 	generic(width: integer := 8);
 	port(datain: in std_logic_vector(width-1 downto 0);
 			dataout: out unsigned(width-1 downto 0));
