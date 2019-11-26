@@ -47,18 +47,19 @@ architecture a of dcfifo is
 	signal ram1wren: std_logic;
 	signal wrdata1: std_logic_vector(width-1 downto 0);
 
-	constant extraWriteRegister: boolean := (depthOrder >= 6);
+	constant extraWriteRegister: boolean := (depthOrder >= 14);
 	
 	
 	--################ state registers ################
 	
 	--read side's view of the current state
-	signal rdRpos,rdWpos,rdWposNext: unsigned(depthOrder-1 downto 0) := (others=>'0'); -- binary integer
+	signal rdRpos,rdRposS,rdWpos,rdWposNext: unsigned(depthOrder-1 downto 0) := (others=>'0'); -- binary integer
 	signal rdRposP1: unsigned(depthOrder-1 downto 0) := (0=>'1', others=>'0');
 	signal rdRposGrey, rdWposGrey: std_logic_vector(depthOrder-1 downto 0);
 	
 	--write side's view of the current state
-	signal wrRpos,wrRposM1,wrWpos,wrWpos1,wrRposNext: unsigned(depthOrder-1 downto 0) := (others=>'0');
+	signal wrRpos,wrWpos,wrWpos1,wrWpos1S,wrRposNext: unsigned(depthOrder-1 downto 0) := (others=>'0');
+	signal wrRposM1: unsigned(depthOrder-1 downto 0) := (others=>'1');
 	signal wrWposP1: unsigned(depthOrder-1 downto 0) := (0=>'1', others=>'0');
 	signal wrRposGrey, wrWposGrey: std_logic_vector(depthOrder-1 downto 0);
 	
@@ -85,6 +86,12 @@ begin
 	
 	wrRposM1 <= wrRpos-1 when rising_edge(wrclk);
 
+	syncRpos: entity greyCDCSync
+			generic map(width=>depthOrder, stages=>syncStages, inputRegistered=>false)
+			port map(srcclk=>rdclk, dstclk=>wrclk, datain=>rdRpos, dataout=>rdRposS);
+	syncWpos: entity greyCDCSync
+			generic map(width=>depthOrder, stages=>syncStages, inputRegistered=>false)
+			port map(srcclk=>wrclk, dstclk=>rdclk, datain=>wrWpos1, dataout=>wrWpos1S);
 g1:
 	if singleClock generate
 		wrRpos <= rdRpos;
@@ -92,12 +99,8 @@ g1:
 	end generate;
 g2:
 	if not singleClock generate
-		syncRpos: entity greyCDCSync
-			generic map(width=>depthOrder, stages=>syncStages, inputRegistered=>false)
-			port map(srcclk=>rdclk, dstclk=>wrclk, datain=>rdRpos, dataout=>wrRpos);
-		syncWpos: entity greyCDCSync
-			generic map(width=>depthOrder, stages=>syncStages, inputRegistered=>false)
-			port map(srcclk=>wrclk, dstclk=>rdclk, datain=>wrWpos1, dataout=>rdWpos);
+		wrRpos <= rdRposS;
+		rdWpos <= wrWpos1S;
 	end generate;
 
 
