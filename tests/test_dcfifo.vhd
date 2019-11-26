@@ -63,8 +63,10 @@ begin
 		variable l : line;
 		variable inpValue: integer := 0;
 	begin
-		wait for inClkHPeriod; inClk <= '1'; wait for inClkHPeriod; inClk <= '0';
-		wait for inClkHPeriod; inClk <= '1'; wait for inClkHPeriod; inClk <= '0';
+		wait for 120 ns;
+		for I in 0 to 15 loop
+			wait for inClkHPeriod; inClk <= '1'; wait for inClkHPeriod; inClk <= '0';
+		end loop;
 		for I in 0 to 500 loop
 			inpValid <= '0';
 			if (I mod inputSpeed(integer(real(I)*1.5))) = 0 then
@@ -88,9 +90,10 @@ begin
 		variable expectValue: integer := 0;
 		variable expectData: unsigned(15 downto 0) := (others=>'0');
 	begin
-		wait for 120 ns;
-		wait for 1 ns; outClk <= '1'; wait for 1 ns; outClk <= '0';
-		wait for 1 ns; outClk <= '1'; wait for 1 ns; outClk <= '0';
+		wait for 60 ns;
+		for I in 0 to 15 loop
+			wait for 1 ns; outClk <= '1'; wait for 1 ns; outClk <= '0';
+		end loop;
 		for I2 in 2 to 750 loop
 			if ((I2) mod outputSpeed(I2)) = 0 then
 				outReady <= '1';
